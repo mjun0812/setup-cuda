@@ -1,5 +1,6 @@
 import * as core from '@actions/core';
 import * as tc from '@actions/tool-cache';
+import * as path from 'path';
 import {
   getOS,
   getArch,
@@ -20,7 +21,7 @@ async function run(): Promise<void> {
   try {
     // Get input version
     const inputVersion = core.getInput('version') || 'latest';
-    core.info(`Input NVIDIA CUDA version: ${inputVersion}`);
+    core.info(`Input version: ${inputVersion}`);
 
     // Get OS and architecture
     const os = getOS();
@@ -55,12 +56,13 @@ async function run(): Promise<void> {
 
     // Get CUDA installer URL
     const cudaInstallerUrl = await getCudaInstallerUrl(targetCudaVersion, os, arch);
-    core.info(`CUDA installer URL: ${cudaInstallerUrl}`);
+    core.debug(`CUDA installer URL: ${cudaInstallerUrl}`);
 
     // Download CUDA installer
     core.info('Downloading CUDA installer...');
-    const installerPath = await tc.downloadTool(cudaInstallerUrl);
-    core.info(`CUDA installer downloaded to: ${installerPath}`);
+    const filename = path.basename(cudaInstallerUrl);
+    const installerPath = await tc.downloadTool(cudaInstallerUrl, filename);
+    core.debug(`CUDA installer downloaded to: ${filename}`);
 
     // Install CUDA
     if (os === OS.LINUX) {
@@ -72,7 +74,7 @@ async function run(): Promise<void> {
     // Get CUDA installation path
     let cudaPath: string;
     if (os === OS.LINUX) {
-      cudaPath = `/usr/local/cuda-${targetCudaVersion}`;
+      cudaPath = '/usr/local/cuda';
     } else {
       const majorMinor = targetCudaVersion.split('.').slice(0, 2).join('.');
       cudaPath = `C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v${majorMinor}`;

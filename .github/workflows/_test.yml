@@ -36,6 +36,10 @@ jobs:
       - name: Build
         run: pnpm run build
 
+      - name: Check Disk Space
+        if: runner.os == 'Linux'
+        run: df -h
+
       - name: Test Local Action
         id: setup-cuda
         uses: ./

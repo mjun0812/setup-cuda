@@ -18,16 +18,11 @@ export async function installCudaLinux(installerPath: string, version: string): 
   // Install CUDA toolkit only (without driver)
   // --silent: Run installer in silent mode
   // --toolkit: Install CUDA Toolkit only
-  const installArgs = ['--silent', '--toolkit'];
+  const cudaPath = '/usr/local/cuda';
+  const installArgs = ['--silent', '--toolkit', `--toolkitpath=${cudaPath}`];
 
-  core.info(`Executing: ${installerPath} ${installArgs.join(' ')}`);
+  core.debug(`Executing: ${installerPath} ${installArgs.join(' ')}`);
   await exec.exec('sudo', [installerPath, ...installArgs]);
-
-  // Verify installation
-  const cudaPath = `/usr/local/cuda-${version}`;
-  if (!fs.existsSync(cudaPath)) {
-    throw new Error(`CUDA installation failed. Path not found: ${cudaPath}`);
-  }
 
   // Set environment variables
   core.info('Setting environment variables...');
