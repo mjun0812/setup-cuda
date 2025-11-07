@@ -1,5 +1,6 @@
 import * as core from '@actions/core';
 import * as tc from '@actions/tool-cache';
+import * as io from '@actions/io';
 import * as path from 'path';
 import {
   getOS,
@@ -66,8 +67,9 @@ async function run(): Promise<void> {
     } else if (osType === OS.WINDOWS) {
       filename = `cuda_${targetCudaVersion}_windows.exe`;
     }
-    const installerPath = await tc.downloadTool(cudaInstallerUrl, filename);
-    core.info(`CUDA installer downloaded to: ${filename}`);
+    let installerPath = await tc.downloadTool(cudaInstallerUrl, filename);
+    installerPath = path.resolve(installerPath);
+    core.info(`CUDA installer downloaded to: ${installerPath}`);
 
     // Install CUDA
     if (osType === OS.LINUX) {
@@ -88,6 +90,10 @@ async function run(): Promise<void> {
     // Set outputs
     core.setOutput('version', targetCudaVersion);
     core.setOutput('cuda-path', cudaPath);
+
+    // Remove installer
+    core.info('Cleaning up installer...');
+    await io.rmRF(installerPath);
 
     core.info('CUDA installation completed successfully');
   } catch (error) {

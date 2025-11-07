@@ -1,4 +1,4 @@
-name: Test (Reusable)
+name: Test
 
 on:
   workflow_call:
@@ -18,6 +18,14 @@ jobs:
     runs-on: ${{ inputs.os }}
 
     steps:
+      - name: Expand Disk Space
+        run: |
+          df -h
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          echo -e "-------\n"
+          df -h
+
       - name: Checkout
         uses: actions/checkout@v5
 
