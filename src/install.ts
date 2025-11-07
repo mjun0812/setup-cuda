@@ -11,9 +11,11 @@ import * as path from 'path';
 export async function installCudaLinux(installerPath: string, version: string): Promise<void> {
   // https://docs.nvidia.com/cuda/cuda-installation-guide-linux/#runfile-installation
   core.info('Installing CUDA on Linux...');
+  const absPath = path.resolve(installerPath);
+  const command = `sudo sh ${absPath}`;
 
   // Make installer executable
-  await exec.exec('chmod', ['+x', installerPath]);
+  await exec.exec('chmod', ['+x', absPath]);
 
   // Install CUDA toolkit only (without driver)
   // --silent: Run installer in silent mode
@@ -21,8 +23,8 @@ export async function installCudaLinux(installerPath: string, version: string): 
   const cudaPath = '/usr/local/cuda';
   const installArgs = ['--silent', '--toolkit', `--toolkitpath=${cudaPath}`];
 
-  core.debug(`Executing: ${installerPath} ${installArgs.join(' ')}`);
-  await exec.exec('sudo', [installerPath, ...installArgs]);
+  core.debug(`Executing: ${command} ${installArgs.join(' ')}`);
+  await exec.exec(command, installArgs);
 
   // Set environment variables
   core.info('Setting environment variables...');
