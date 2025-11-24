@@ -432,6 +432,7 @@ export async function findCudaNetworkInstallerWindows(
     }
   } catch {
     // If HEAD request fails, the installer doesn't exist
+    console.error(`CUDA Windows network installer not found for version ${version}`);
     return undefined;
   }
 

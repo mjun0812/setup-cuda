@@ -56,6 +56,9 @@ async function installCudaWindowsLocal(installerPath: string, version: string): 
   if (!fs.existsSync(cudaPath)) {
     throw new Error(`CUDA installation failed. Path not found: ${cudaPath}`);
   }
+
+  // Remove installer
+  await io.rmRF(installerPath);
 }
 
 /**
@@ -84,7 +87,16 @@ export async function installCudaLocal(version: string, os: OS, arch: Arch): Pro
 
   // Install CUDA
   if (os === OS.LINUX) {
-    await installCudaLinuxLocal(installerPath);
+    try {
+      await installCudaLinuxLocal(installerPath);
+    } catch (error) {
+      try {
+        await exec.exec('cat /var/log/cuda-installer.log');
+      } catch (logErr) {
+        // Ignore errors from log output
+      }
+      throw error;
+    }
   } else if (os === OS.WINDOWS) {
     await installCudaWindowsLocal(installerPath, version);
   }
@@ -101,6 +113,8 @@ export async function installCudaLocal(version: string, os: OS, arch: Arch): Pro
     const majorMinor = version.split('.').slice(0, 2).join('.');
     cudaPath = `C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v${majorMinor}`;
   }
+  // Remove installer
+  await io.rmRF(installerPath);
   return cudaPath;
 }
 
@@ -151,6 +165,7 @@ async function installCudaLinuxNetwork(
   }
   return cudaPath;
 }
+
 /**
  * Install CUDA on Windows using network installer
  * @param version - CUDA version string (e.g., "12.3.0")
@@ -195,23 +210,10 @@ async function installCudaWindowsNetwork(version: string): Promise<string | unde
   // Get CUDA installation path (same logic as local)
   const majorMinor = version.split('.').slice(0, 2).join('.');
   const cudaPath = `C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v${majorMinor}`;
-
   // Verify installation
   if (!fs.existsSync(cudaPath)) {
     throw new Error(`CUDA installation failed. Path not found: ${cudaPath}`);
   }
-
-  // Set environment variables (same as local)
-  core.info('Setting environment variables...');
-  const binPath = path.join(cudaPath, 'bin');
-  const libPath = path.join(cudaPath, 'lib', 'x64');
-
-  core.addPath(binPath);
-  core.addPath(libPath);
-  core.exportVariable('CUDA_PATH', cudaPath);
-  core.exportVariable('CUDA_HOME', cudaPath);
-
-  core.info(`CUDA ${version} installed successfully at ${cudaPath}`);
 
   return cudaPath;
 }
