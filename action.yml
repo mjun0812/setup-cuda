@@ -15,6 +15,14 @@ inputs:
       If the Patch version is not specified, the latest Patch version will be installed.
       For example, '13.0.1' or '13.0'.
     default: latest
+  method:
+    description: |
+      The method to use to install CUDA. (local, network, auto)
+      If this value is not specified, the auto method will be used.
+      The auto method will automatically determine the best method to use based on the OS and architecture.
+      The local method will download the CUDA installer from the NVIDIA website and install it.
+      The network method will use the CUDA network installer to install CUDA.
+    default: auto
 
 outputs:
   version:

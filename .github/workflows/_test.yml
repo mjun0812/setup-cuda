@@ -11,6 +11,10 @@ on:
         description: 'CUDA version to test'
         required: true
         type: string
+      method:
+        description: 'Method to test'
+        required: true
+        type: string
 
 jobs:
   Test:
@@ -26,23 +30,6 @@ jobs:
           sudo rm -rf /usr/local/lib/android || true
           echo "-------"
           df -h
-
-      - name: Expand Disk Space
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          Get-PSDrive -PSProvider FileSystem | Format-Table
-          if (Test-Path "C:\Program Files\dotnet") {
-            Remove-Item -Recurse -Force "C:\Program Files\dotnet" -ErrorAction SilentlyContinue
-          }
-          if (Test-Path "C:\Program Files (x86)\dotnet") {
-            Remove-Item -Recurse -Force "C:\Program Files (x86)\dotnet" -ErrorAction SilentlyContinue
-          }
-          if (Test-Path "C:\Program Files (x86)\Android") {
-            Remove-Item -Recurse -Force "C:\Program Files (x86)\Android" -ErrorAction SilentlyContinue
-          }
-          Write-Host "-------"
-          Get-PSDrive -PSProvider FileSystem | Format-Table
 
       - name: Checkout
         uses: actions/checkout@v5
@@ -67,6 +54,7 @@ jobs:
         uses: ./
         with:
           version: ${{ inputs.version }}
+          method: ${{ inputs.method }}
 
       - name: Verify CUDA Installation
         shell: bash

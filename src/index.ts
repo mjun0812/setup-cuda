@@ -1,7 +1,4 @@
 import * as core from '@actions/core';
-import * as tc from '@actions/tool-cache';
-import * as io from '@actions/io';
-import * as path from 'path';
 import {
   getOS,
   getArch,
@@ -12,8 +9,8 @@ import {
   WindowsVersion,
   getWindowsVersion,
 } from './os_arch';
-import { findCudaVersion, getCudaInstallerUrl } from './cuda';
-import { installCudaLinux, installCudaWindows } from './install';
+import { findCudaVersion } from './cuda';
+import { installCudaLocal, installCudaNetwork } from './install';
 
 /**
  * Main entry point for the action
@@ -23,6 +20,13 @@ async function run(): Promise<void> {
     // Get input version
     const inputVersion = core.getInput('version') || 'latest';
     core.info(`Input version: ${inputVersion}`);
+
+    // Get input method
+    const inputMethod = (core.getInput('method') || 'auto') as 'local' | 'network' | 'auto';
+    if (!['local', 'network', 'auto'].includes(inputMethod)) {
+      throw new Error(`Invalid method: ${inputMethod}. Valid methods are: local, network, auto`);
+    }
+    core.info(`Input method: ${inputMethod}`);
 
     // Get OS and architecture
     const osType = getOS();
@@ -55,46 +59,33 @@ async function run(): Promise<void> {
     }
     core.info(`Target CUDA version: ${targetCudaVersion}`);
 
-    // Get CUDA installer URL
-    const cudaInstallerUrl = await getCudaInstallerUrl(targetCudaVersion, osType, arch);
-    core.debug(`CUDA installer URL: ${cudaInstallerUrl}`);
-
-    // Download CUDA installer
-    core.info('Downloading CUDA installer...');
-    let filename = path.basename(cudaInstallerUrl);
-    if (osType === OS.LINUX) {
-      filename = `cuda_${targetCudaVersion}_linux.run`;
-    } else if (osType === OS.WINDOWS) {
-      filename = `cuda_${targetCudaVersion}_windows.exe`;
-    }
-    let installerPath = await tc.downloadTool(cudaInstallerUrl, filename);
-    installerPath = path.resolve(installerPath);
-    core.info(`CUDA installer downloaded to: ${installerPath}`);
-
     // Install CUDA
-    if (osType === OS.LINUX) {
-      await installCudaLinux(installerPath, targetCudaVersion);
-    } else if (osType === OS.WINDOWS) {
-      await installCudaWindows(installerPath, targetCudaVersion);
-    }
-
-    // Get CUDA installation path
-    let cudaPath: string;
-    if (osType === OS.LINUX) {
-      cudaPath = '/usr/local/cuda';
+    let cudaPath: string = '';
+    if (inputMethod === 'local') {
+      // Local installation
+      cudaPath = await installCudaLocal(targetCudaVersion, osType, arch);
     } else {
-      const majorMinor = targetCudaVersion.split('.').slice(0, 2).join('.');
-      cudaPath = `C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v${majorMinor}`;
+      // Network installation
+      const networkCudaPath = await installCudaNetwork(
+        targetCudaVersion,
+        osType,
+        arch,
+        osType === OS.LINUX ? linuxDistribution! : windowsVersion!
+      );
+      if (!networkCudaPath && inputMethod === 'network') {
+        throw new Error('CUDA network installation failed');
+      } else if (!networkCudaPath && inputMethod === 'auto') {
+        core.info('CUDA network installation failed, falling back to local installation');
+        cudaPath = await installCudaLocal(targetCudaVersion, osType, arch);
+      } else {
+        // Network installation succeeded
+        cudaPath = networkCudaPath!;
+      }
     }
 
     // Set outputs
     core.setOutput('version', targetCudaVersion);
     core.setOutput('cuda-path', cudaPath);
-
-    // Remove installer
-    core.info('Cleaning up installer...');
-    await io.rmRF(installerPath);
-
     core.info('CUDA installation completed successfully');
   } catch (error) {
     if (error instanceof Error) {

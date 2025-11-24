@@ -26,6 +26,10 @@ jobs:
           - 12.0
           - 13
           - latest
+        method:
+          - local
+          - network
+          - auto
         exclude:
           # CUDA 10.x is not supported on ARM architecture
           - os: ubuntu-24.04-arm
@@ -36,3 +40,4 @@ jobs:
     with:
       os: ${{ matrix.os }}
       version: ${{ matrix.version }}
+      method: ${{ matrix.method }}

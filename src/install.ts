@@ -2,19 +2,24 @@ import * as core from '@actions/core';
 import * as exec from '@actions/exec';
 import * as fs from 'fs';
 import * as path from 'path';
+import { OS, Arch, LinuxDistribution, WindowsVersion } from './os_arch';
+import {
+  getCudaLocalInstallerUrl,
+  findCudaRepoAndPackageLinux,
+  findCudaNetworkInstallerWindows,
+} from './cuda';
+import * as tc from '@actions/tool-cache';
+import * as io from '@actions/io';
 
 /**
  * Install CUDA on Linux
  * @param installerPath - Path to the CUDA installer (.run file)
  * @param version - CUDA version string (e.g., "12.3.0")
  */
-export async function installCudaLinux(installerPath: string, version: string): Promise<void> {
+async function installCudaLinuxLocal(installerPath: string, version: string): Promise<void> {
   // https://docs.nvidia.com/cuda/cuda-installation-guide-linux/#runfile-installation
   core.info('Installing CUDA on Linux...');
   const command = `sudo sh ${installerPath}`;
-
-  // Make installer executable
-  await exec.exec('chmod', ['+x', installerPath]);
 
   // Install CUDA toolkit only (without driver)
   // --silent: Run installer in silent mode
@@ -48,7 +53,7 @@ export async function installCudaLinux(installerPath: string, version: string): 
  * @param installerPath - Path to the CUDA installer (.exe file)
  * @param version - CUDA version string (e.g., "12.3.0")
  */
-export async function installCudaWindows(installerPath: string, version: string): Promise<void> {
+async function installCudaWindowsLocal(installerPath: string, version: string): Promise<void> {
   // https://docs.nvidia.com/cuda/cuda-installation-guide-microsoft-windows/index.html#install-the-cuda-software
   core.info('Installing CUDA on Windows...');
 
@@ -83,4 +88,158 @@ export async function installCudaWindows(installerPath: string, version: string)
   core.exportVariable('CUDA_HOME', cudaPath);
 
   core.info(`CUDA ${version} installed successfully at ${cudaPath}`);
+}
+
+/**
+ * Install CUDA
+ * @param version - CUDA version string (e.g., "12.3.0")
+ * @param os - Operating system (e.g., OS.LINUX, OS.WINDOWS)
+ * @param arch - Architecture (e.g., Arch.X86_64, Arch.ARM64_SBSA)
+ * @returns The path to the CUDA installation
+ */
+export async function installCudaLocal(version: string, os: OS, arch: Arch): Promise<string> {
+  // Get CUDA installer URL
+  const cudaInstallerUrl = await getCudaLocalInstallerUrl(version, os, arch);
+  core.debug(`CUDA installer URL: ${cudaInstallerUrl}`);
+
+  // Download CUDA installer
+  core.info('Downloading CUDA installer...');
+  let filename = path.basename(cudaInstallerUrl);
+  if (os === OS.LINUX) {
+    filename = `cuda_${version}_linux.run`;
+  } else if (os === OS.WINDOWS) {
+    filename = `cuda_${version}_windows.exe`;
+  }
+  let installerPath = await tc.downloadTool(cudaInstallerUrl, filename);
+  installerPath = path.resolve(installerPath);
+  core.info(`CUDA installer downloaded to: ${installerPath}`);
+
+  // Install CUDA
+  if (os === OS.LINUX) {
+    await installCudaLinuxLocal(installerPath, version);
+  } else if (os === OS.WINDOWS) {
+    await installCudaWindowsLocal(installerPath, version);
+  }
+  // Remove installer
+  core.info('Cleaning up installer...');
+  await io.rmRF(installerPath);
+
+  // Get CUDA installation path
+  let cudaPath: string;
+  if (os === OS.LINUX) {
+    cudaPath = '/usr/local/cuda';
+  } else {
+    // Windows
+    const majorMinor = version.split('.').slice(0, 2).join('.');
+    cudaPath = `C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v${majorMinor}`;
+  }
+  return cudaPath;
+}
+
+async function installCudaLinuxNetwork(
+  version: string,
+  arch: Arch,
+  osInfo: LinuxDistribution
+): Promise<string | undefined> {
+  const cudaRepoAndPackage = await findCudaRepoAndPackageLinux(version, arch, osInfo);
+  if (!cudaRepoAndPackage) {
+    return undefined;
+  }
+  const repoUrl = cudaRepoAndPackage.repoUrl;
+  const packageName = cudaRepoAndPackage.packageName;
+
+  let cudaPath: string | undefined = undefined;
+  if (osInfo.idLink === 'debian') {
+    // Set up CUDA repository
+    let repoFilePath = await tc.downloadTool(repoUrl);
+    repoFilePath = path.resolve(repoFilePath);
+    if (repoUrl.endsWith('.deb')) {
+      repoFilePath = path.resolve(repoFilePath);
+      await exec.exec(`sudo dpkg -i ${repoFilePath}`);
+      await exec.exec(`sudo apt-get update`);
+    } else if (repoUrl.endsWith('.pin')) {
+      await exec.exec(`sudo mv ${repoFilePath} /etc/apt/preferences.d/cuda-repository-pin-600`);
+      const repoRootUrl = repoUrl.replace(/\/[\w.-]+\.pin$/, '');
+      await exec.exec(`sudo add-apt-repository "deb ${repoRootUrl} /"`);
+      await exec.exec(`sudo apt-get update`);
+    }
+    // Install CUDA toolkit
+    await exec.exec(`sudo apt-get install -y ${packageName}`);
+    cudaPath = '/usr/local/cuda';
+  } else if (osInfo.idLink === 'fedora') {
+    let repoFilePath = await tc.downloadTool(repoUrl);
+    repoFilePath = path.resolve(repoFilePath);
+    await exec.exec(`sudo dnf config-manager --add-repo ${repoUrl}`);
+    await exec.exec(`sudo dnf clean all`);
+    await exec.exec(`sudo dnf install -y ${packageName}`);
+    cudaPath = '/usr/local/cuda';
+  }
+  return cudaPath;
+}
+/**
+ * Install CUDA on Windows using network installer
+ * @param version - CUDA version string (e.g., "12.3.0")
+ * @param arch - Architecture (e.g., Arch.X86_64)
+ * @param osInfo - Windows version information
+ * @returns The path to the CUDA installation, or undefined if network installer is not available
+ */
+async function installCudaWindowsNetwork(version: string): Promise<string | undefined> {
+  const networkInstallerUrl = await findCudaNetworkInstallerWindows(version);
+  if (!networkInstallerUrl) {
+    return undefined;
+  }
+
+  const filename = `cuda_${version}_windows_network.exe`;
+  let installerPath = await tc.downloadTool(networkInstallerUrl, filename);
+  installerPath = path.resolve(installerPath);
+
+  // Install using the same method as local installer (silent mode)
+  // -s: Silent installation
+  const installArgs = ['-s'];
+
+  core.info(`Installing CUDA on Windows (Network)...`);
+  core.info(`Executing: ${installerPath} ${installArgs.join(' ')}`);
+
+  // Execute installer
+  await exec.exec(installerPath, installArgs);
+
+  // Clean up installer
+  await io.rmRF(installerPath);
+
+  // Get CUDA installation path (same logic as local)
+  const majorMinor = version.split('.').slice(0, 2).join('.');
+  const cudaPath = `C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v${majorMinor}`;
+
+  // Verify installation
+  if (!fs.existsSync(cudaPath)) {
+    throw new Error(`CUDA installation failed. Path not found: ${cudaPath}`);
+  }
+
+  // Set environment variables (same as local)
+  core.info('Setting environment variables...');
+  const binPath = path.join(cudaPath, 'bin');
+  const libPath = path.join(cudaPath, 'lib', 'x64');
+
+  core.addPath(binPath);
+  core.addPath(libPath);
+  core.exportVariable('CUDA_PATH', cudaPath);
+  core.exportVariable('CUDA_HOME', cudaPath);
+
+  core.info(`CUDA ${version} installed successfully at ${cudaPath}`);
+
+  return cudaPath;
+}
+
+export async function installCudaNetwork(
+  version: string,
+  os: OS,
+  arch: Arch,
+  osInfo: LinuxDistribution | WindowsVersion
+): Promise<string | undefined> {
+  if (os === OS.LINUX) {
+    return await installCudaLinuxNetwork(version, arch, osInfo as LinuxDistribution);
+  } else if (os === OS.WINDOWS) {
+    return await installCudaWindowsNetwork(version);
+  }
+  return undefined;
 }

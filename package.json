@@ -10,7 +10,10 @@
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
     "typecheck": "tsc --noEmit",
-    "all": "pnpm format && pnpm lint && pnpm typecheck && pnpm build"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "all": "pnpm format && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
   },
   "keywords": [
     "actions",
@@ -37,6 +40,7 @@
     "esbuild": "^0.25.12",
     "eslint": "^9.39.0",
     "prettier": "^3.6.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.8"
   }
 }

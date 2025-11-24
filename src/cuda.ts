@@ -1,7 +1,27 @@
 import { HttpClient } from '@actions/http-client';
-import { OS, Arch } from './os_arch';
+import { OS, Arch, LinuxDistribution, WindowsVersion } from './os_arch';
 import { sortVersions, compareVersions } from './utils';
 import { CUDA_LINKS, START_SUPPORTED_CUDA_VERSION, OLD_CUDA_VERSIONS } from './const';
+
+/**
+ * Normalize CUDA version for old
+ * For major version <= 10, returns only major.minor (e.g., "8.0", "10.2")
+ * For major version >= 11, returns the full version (e.g., "11.0.3", "12.3.0")
+ * @param version - Version string to normalize
+ * @returns Normalized version string
+ */
+export function normalizeCudaVersion(version: string): string {
+  const parts = version.split('.');
+  const major = parseInt(parts[0], 10);
+
+  if (major <= 10) {
+    // For CUDA 10 and below, only major.minor is available in opensource directory
+    return parts.slice(0, 2).join('.');
+  }
+
+  // For CUDA 11 and above, full version is available
+  return version;
+}
 
 /**
  * Get the URL for the download file for a given CUDA version
@@ -54,30 +74,6 @@ export async function fetchMd5sum(version: string): Promise<Record<string, strin
     md5sums[filename] = md5sum;
   }
   return md5sums;
-}
-
-/**
- * Normalize CUDA version for old
- * For major version <= 10, returns only major.minor (e.g., "8.0", "10.2")
- * For major version >= 11, returns the full version (e.g., "11.0.3", "12.3.0")
- * @param version - Version string to normalize
- * @returns Normalized version string
- */
-export function normalizeCudaVersion(version: string): string {
-  const parts = version.split('.');
-  const major = parseInt(parts[0], 10);
-
-  if (isNaN(major)) {
-    return version;
-  }
-
-  if (major <= 10) {
-    // For CUDA 10 and below, only major.minor is available in opensource directory
-    return parts.slice(0, 2).join('.');
-  }
-
-  // For CUDA 11 and above, full version is available
-  return version;
 }
 
 /**
@@ -182,14 +178,21 @@ export async function fetchOpensourceVersions(): Promise<string[]> {
 
 /**
  * Fetch all available CUDA versions by combining Method A, B, and C
+ * Even if some sources fail, this function will return versions from successful sources
  * @returns Promise that resolves to an array of unique version strings, sorted
  */
 export async function fetchAvailableCudaVersions(): Promise<string[]> {
-  const [redistribVersions, archiveVersions, opensourceVersions] = await Promise.all([
+  // Use Promise.allSettled to handle individual failures gracefully
+  const results = await Promise.allSettled([
     fetchRedistribVersions(),
     fetchArchiveVersions(),
     fetchOpensourceVersions(),
   ]);
+
+  // Extract successful results
+  const redistribVersions = results[0].status === 'fulfilled' ? results[0].value : [];
+  const archiveVersions = results[1].status === 'fulfilled' ? results[1].value : [];
+  const opensourceVersions = results[2].status === 'fulfilled' ? results[2].value : [];
 
   // Combine and deduplicate versions
   const allVersions = new Set([
@@ -254,7 +257,11 @@ export async function findCudaVersion(inputVersion: string): Promise<string | un
  * @param arch - Architecture (e.g., Arch.X86_64, Arch.ARM64_SBSA)
  * @returns The URL for the CUDA installer
  */
-export async function getCudaInstallerUrl(version: string, os: OS, arch: Arch): Promise<string> {
+export async function getCudaLocalInstallerUrl(
+  version: string,
+  os: OS,
+  arch: Arch
+): Promise<string> {
   // Check if the version is supported
   if (compareVersions(version, START_SUPPORTED_CUDA_VERSION) < 0) {
     throw new Error(`CUDA version ${version} is not supported`);
@@ -336,4 +343,223 @@ export async function getCudaInstallerUrl(version: string, os: OS, arch: Arch): 
     );
   }
   return getDownloadUrl(version, 'local_installers', targetFilename);
+}
+
+/**
+ * Generic function to fetch items from CUDA repository pages
+ * @param url - The URL to fetch from
+ * @param pattern - Regular expression pattern to extract items (must have a capture group)
+ * @param filterFn - Optional filter function to exclude certain items
+ * @param sort - Whether to sort the results (default: false)
+ * @returns Promise that resolves to an array of extracted items
+ */
+async function fetchCudaRepoItems(
+  url: string,
+  pattern: RegExp,
+  filterFn?: (item: string) => boolean,
+  sort: boolean = false
+): Promise<string[]> {
+  const client = new HttpClient('setup-cuda');
+  const response = await client.get(url);
+
+  if (response.message.statusCode !== 200) {
+    throw new Error(
+      `Failed to fetch from ${url}: ${response.message.statusCode} ${response.message.statusMessage}`
+    );
+  }
+  const html = await response.readBody();
+
+  const items = new Set<string>();
+  let match;
+  while ((match = pattern.exec(html)) !== null) {
+    const item = match[1];
+    if (!filterFn || filterFn(item)) {
+      items.add(item);
+    }
+  }
+
+  const result = [...items];
+  return sort ? result.sort() : result;
+}
+
+/**
+ * Fetch available OS repositories from CUDA repos directory
+ * @returns Promise that resolves to an array of OS directory names
+ */
+export async function fetchCudaRepoOS(): Promise<string[]> {
+  const url = 'https://developer.download.nvidia.com/compute/cuda/repos/';
+  // Extract OS directory names (e.g., ubuntu2204/, rhel9/, etc.)
+  const dirPattern = />([a-zA-Z0-9_\-]+)\//g;
+  // Filter out common non-OS directories like "Parent Directory"
+  const filterFn = (dirName: string) => dirName !== '..';
+
+  return fetchCudaRepoItems(url, dirPattern, filterFn, true);
+}
+
+/**
+ * Fetch available files from a CUDA repository directory
+ * @param url - The repository URL to fetch files from
+ * @returns Promise that resolves to an array of file names
+ */
+async function fetchCudaRepoFiles(url: string): Promise<string[]> {
+  // Extract filenames from <a href="..."> or <a href='...'> tags
+  const linkPattern = /<a\s+href=['"]([^'"]+)['"]/gi;
+  // Skip parent directory (..) and directories (ending with /)
+  const filterFn = (href: string) => href !== '../' && !href.endsWith('/');
+
+  return fetchCudaRepoItems(url, linkPattern, filterFn, false);
+}
+
+/**
+ * Find the URL for the CUDA Windows network installer for a given version
+ * @param version - CUDA version string (e.g., "12.3.0")
+ * @returns The URL for the CUDA Windows network installer, or undefined if not found
+ */
+export async function findCudaNetworkInstallerWindows(
+  version: string
+): Promise<string | undefined> {
+  // https://developer.download.nvidia.com/compute/cuda/<CUDA_VERSION>/network_installers/cuda_<CUDA_VERSION>_<OS>_network.exe
+  let url = await getCudaLocalInstallerUrl(version, OS.WINDOWS, Arch.X86_64);
+  url = url.replace('local_installers', 'network_installers');
+  url = url.replace('.exe', '_network.exe');
+
+  // Verify that the network installer exists
+  const client = new HttpClient('setup-cuda');
+  try {
+    const response = await client.head(url);
+    if (response.message.statusCode === 200) {
+      return url;
+    }
+  } catch (error) {
+    // If HEAD request fails, the installer doesn't exist
+    return undefined;
+  }
+
+  return undefined;
+}
+
+/**
+ * Find if a CUDA repository exists for the given OS configuration
+ * @param cudaVersion - CUDA version string (e.g., "12.3.0")
+ * @param arch - Architecture type
+ * @param osInfo - Linux distribution information
+ * @returns Promise that resolves to true if the OS repository exists, false otherwise
+ */
+export async function findCudaRepoAndPackageLinux(
+  cudaVersion: string,
+  arch: Arch,
+  osInfo: LinuxDistribution
+): Promise<{ repoUrl: string; packageName: string } | undefined> {
+  const osList = await fetchCudaRepoOS();
+
+  let targetOsName: string;
+  const id = osInfo.id.toLowerCase();
+  const version = osInfo.version;
+
+  // Different distributions use different version formats:
+  // - Ubuntu: major.minor -> ubuntu2204 (both major and minor, remove dots)
+  // - RHEL: major.minor -> rhel9 (major only)
+  // - Debian: major.minor -> debian12 (major only)
+  // - Fedora: single number -> fedora40
+  let versionPart: string;
+  if (id === 'ubuntu') {
+    // Ubuntu uses major.minor format, remove dots
+    versionPart = version.replace(/\./g, '');
+  } else {
+    // Most other distros use major version only
+    versionPart = version.split('.')[0];
+  }
+  targetOsName = `${id}${versionPart}`;
+  if (!osList.includes(targetOsName)) {
+    return undefined;
+  }
+
+  let cudaRepoUrl = `https://developer.download.nvidia.com/compute/cuda/repos/${targetOsName}`;
+  if (arch === Arch.X86_64) {
+    cudaRepoUrl += '/x86_64/';
+  } else if (arch === Arch.ARM64_SBSA) {
+    cudaRepoUrl += '/sbsa/';
+  } else {
+    throw new Error(`Unsupported architecture: ${arch}`);
+  }
+
+  let repoFiles = await fetchCudaRepoFiles(cudaRepoUrl);
+
+  // Find the CUDA repository filename
+  // Debian like OS: find cuda-keyring*.deb or cuda-*.pin
+  // Fedora like OS: find cuda-*.repo
+  let filename: string | undefined = undefined;
+  if (osInfo.idLink === 'debian') {
+    // Debian: cuda-keyring_<version>-<build>_all.deb
+    const cudaKeyringPattern = /cuda-keyring_[\w.-]+\.deb/gi;
+    const cudaKeyringMatches = repoFiles.filter((file) => cudaKeyringPattern.test(file)).sort();
+    if (cudaKeyringMatches.length > 0) {
+      filename = cudaKeyringMatches[cudaKeyringMatches.length - 1];
+    }
+
+    if (!filename) {
+      // Old Debian CUDA Repositories: cuda-*.pin
+      const cudaPinPattern = /cuda-[\w.-]+\.pin/i;
+      const cudaPinMatches = repoFiles.filter((file) => cudaPinPattern.test(file)).sort();
+      if (cudaPinMatches.length > 0) {
+        filename = cudaPinMatches[cudaPinMatches.length - 1];
+      }
+    }
+  } else if (osInfo.idLink === 'fedora') {
+    // Fedora: cuda-<os><version>.repo
+    const cudaRepoPattern = /cuda-[\w.-]+\.repo/i;
+    const cudaRepoMatches = repoFiles.filter((file) => cudaRepoPattern.test(file)).sort();
+    if (cudaRepoMatches.length > 0) {
+      filename = cudaRepoMatches[cudaRepoMatches.length - 1];
+    }
+  }
+  if (!filename) {
+    return undefined;
+  }
+
+  // Check Available Packages of CUDA from the repository
+  let availablePackages: string[] = [];
+  if (osInfo.idLink === 'debian') {
+    availablePackages = repoFiles
+      .filter(
+        (file) =>
+          file.startsWith(`cuda-toolkit_${cudaVersion}`) || file.startsWith(`cuda_${cudaVersion}`)
+      )
+      .sort();
+  } else if (osInfo.idLink === 'fedora') {
+    availablePackages = repoFiles
+      .filter(
+        (file) =>
+          file.startsWith(`cuda-toolkit-${cudaVersion}`) || file.startsWith(`cuda-${cudaVersion}`)
+      )
+      .sort();
+  }
+  if (availablePackages.length === 0) {
+    return undefined;
+  }
+  let packageName: string = '';
+  if (osInfo.idLink === 'debian') {
+    // debian: cuda-toolkit_<version> or cuda_<version>
+    // filename format: <package>_<version>_<arch>.deb
+    const filename = availablePackages[0];
+    const match = filename.match(/^([^_]+)_([^_]+)_.*\.deb$/);
+    if (match) {
+      packageName = `${match[1]}=${match[2]}`;
+    } else {
+      packageName = filename;
+    }
+  } else if (osInfo.idLink === 'fedora') {
+    // fedora: cuda-toolkit-<version> or cuda-<version>
+    // filename format: <package>-<version>-<release>.<arch>.rpm
+    // dnf install <package>-<version>-<release>
+    const filename = availablePackages[availablePackages.length - 1];
+    const match = filename.match(/^(.+)-(\d+\.\d+\.\d+)-(\d+)\..+\.rpm$/);
+    if (match) {
+      packageName = `${match[1]}-${match[2]}-${match[3]}`;
+    } else {
+      packageName = filename;
+    }
+  }
+
+  return { repoUrl: `${cudaRepoUrl}${filename}`, packageName: packageName };
 }

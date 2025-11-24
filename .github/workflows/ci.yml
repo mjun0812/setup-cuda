@@ -38,8 +38,11 @@ jobs:
       - name: Type Check
         run: pnpm run typecheck
 
+      - name: Run Unit Tests
+        run: pnpm run test
+
   Test:
-    name: Test
+    name: Small Test
     strategy:
       fail-fast: false
       matrix:
@@ -48,9 +51,12 @@ jobs:
           - windows-latest
           - ubuntu-latest
           - ubuntu-24.04-arm
-        version:
-          - latest
+        method:
+          - local
+          - network
+          - auto
     uses: ./.github/workflows/_test.yml
     with:
       os: ${{ matrix.os }}
-      version: ${{ matrix.version }}
+      version: 'latest'
+      method: ${{ matrix.method }}

@@ -24,6 +24,7 @@ export interface LinuxDistribution {
   id: string;
   version: string;
   name: string;
+  idLink: string;
 }
 
 /**
@@ -91,6 +92,7 @@ export function getLinuxDistribution(): LinuxDistribution {
   let id = '';
   let version = '';
   let name = '';
+  let idLink = '';
 
   for (const line of lines) {
     const trimmedLine = line.trim();
@@ -101,6 +103,8 @@ export function getLinuxDistribution(): LinuxDistribution {
       version = trimmedLine.substring(11).replace(/"/g, '');
     } else if (trimmedLine.startsWith('NAME=')) {
       name = trimmedLine.substring(5).replace(/"/g, '');
+    } else if (trimmedLine.startsWith('ID_LIKE=')) {
+      idLink = trimmedLine.substring(9).replace(/"/g, '');
     }
   }
 
@@ -112,6 +116,7 @@ export function getLinuxDistribution(): LinuxDistribution {
     id,
     version: version || 'unknown',
     name: name || id,
+    idLink: idLink,
   };
 }
 
