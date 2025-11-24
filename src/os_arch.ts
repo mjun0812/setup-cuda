@@ -97,14 +97,19 @@ export function getLinuxDistribution(): LinuxDistribution {
   for (const line of lines) {
     const trimmedLine = line.trim();
 
-    if (trimmedLine.startsWith('ID=')) {
-      id = trimmedLine.substring(3).replace(/"/g, '');
-    } else if (trimmedLine.startsWith('VERSION_ID=')) {
-      version = trimmedLine.substring(11).replace(/"/g, '');
-    } else if (trimmedLine.startsWith('NAME=')) {
-      name = trimmedLine.substring(5).replace(/"/g, '');
-    } else if (trimmedLine.startsWith('ID_LIKE=')) {
-      idLink = trimmedLine.substring(9).replace(/"/g, '');
+    if (trimmedLine.includes('=')) {
+      const [key, ...valueParts] = trimmedLine.split('=');
+      const value = valueParts.join('=').replace(/"/g, '');
+
+      if (key === 'ID') {
+        id = value;
+      } else if (key === 'VERSION_ID') {
+        version = value;
+      } else if (key === 'NAME') {
+        name = value;
+      } else if (key === 'ID_LIKE') {
+        idLink = value;
+      }
     }
   }
 

@@ -40,7 +40,7 @@ async function run(): Promise<void> {
     if (osType === OS.LINUX) {
       linuxDistribution = getLinuxDistribution();
       core.info(
-        `Linux distribution: ${linuxDistribution.id} ${linuxDistribution.version} ${linuxDistribution.name}`
+        `Linux distribution: ${linuxDistribution.id} ${linuxDistribution.version} ${linuxDistribution.name} ${linuxDistribution.idLink}`
       );
     } else if (osType === OS.WINDOWS) {
       windowsVersion = getWindowsVersion();
