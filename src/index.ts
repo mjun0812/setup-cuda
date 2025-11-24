@@ -12,9 +12,6 @@ import {
 import { findCudaVersion } from './cuda';
 import { installCudaLocal, installCudaNetwork } from './install';
 
-/**
- * Main entry point for the action
- */
 async function run(): Promise<void> {
   try {
     // Get input version
@@ -60,11 +57,11 @@ async function run(): Promise<void> {
     core.info(`Target CUDA version: ${targetCudaVersion}`);
 
     // Install CUDA
-    let cudaPath: string = '';
+    let cudaPath: string | undefined = undefined;
     if (inputMethod === 'local') {
       // Local installation
       cudaPath = await installCudaLocal(targetCudaVersion, osType, arch);
-    } else {
+    } else if (inputMethod === 'network') {
       // Network installation
       const networkCudaPath = await installCudaNetwork(
         targetCudaVersion,
@@ -72,15 +69,27 @@ async function run(): Promise<void> {
         arch,
         osType === OS.LINUX ? linuxDistribution! : windowsVersion!
       );
-      if (!networkCudaPath && inputMethod === 'network') {
-        throw new Error('CUDA network installation failed');
-      } else if (!networkCudaPath && inputMethod === 'auto') {
-        core.info('CUDA network installation failed, falling back to local installation');
-        cudaPath = await installCudaLocal(targetCudaVersion, osType, arch);
-      } else {
-        // Network installation succeeded
-        cudaPath = networkCudaPath!;
+      if (!networkCudaPath) {
+        throw new Error(`CUDA network installation failed for version ${targetCudaVersion}`);
       }
+      cudaPath = networkCudaPath;
+    } else if (inputMethod === 'auto') {
+      // Auto installation (try network first, then local)
+      try {
+        cudaPath = await installCudaNetwork(
+          targetCudaVersion,
+          osType,
+          arch,
+          osType === OS.LINUX ? linuxDistribution! : windowsVersion!
+        );
+      } catch (error) {
+        core.info(`CUDA network installation failed for version ${targetCudaVersion}: ${error}`);
+        core.info('Falling back to local installation');
+        cudaPath = await installCudaLocal(targetCudaVersion, osType, arch);
+      }
+    }
+    if (!cudaPath) {
+      throw new Error(`CUDA installation failed for version ${targetCudaVersion}`);
     }
 
     // Set outputs

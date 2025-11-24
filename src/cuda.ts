@@ -471,7 +471,7 @@ export async function findCudaRepoAndPackageLinux(
   }
   targetOsName = `${id}${versionPart}`;
   if (!osList.includes(targetOsName)) {
-    return undefined;
+    throw new Error(`CUDA repository for ${targetOsName} not found`);
   }
 
   let cudaRepoUrl = `https://developer.download.nvidia.com/compute/cuda/repos/${targetOsName}`;
@@ -514,7 +514,7 @@ export async function findCudaRepoAndPackageLinux(
     }
   }
   if (!filename) {
-    return undefined;
+    throw new Error(`CUDA repository file for ${cudaVersion} not found`);
   }
 
   // Check Available Packages of CUDA from the repository
@@ -535,7 +535,7 @@ export async function findCudaRepoAndPackageLinux(
       .sort();
   }
   if (availablePackages.length === 0) {
-    return undefined;
+    throw new Error(`No available packages found for ${cudaVersion} on ${osInfo.id}`);
   }
   let packageName: string = '';
   if (osInfo.idLink === 'debian') {
