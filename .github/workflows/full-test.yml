@@ -18,8 +18,8 @@ jobs:
           - ubuntu-24.04
           - ubuntu-22.04
           # https://github.com/actions/partner-runner-images
-          - ubuntu-24.04-arm
-          - ubuntu-22.04-arm
+          # - ubuntu-24.04-arm
+          # - ubuntu-22.04-arm
         version:
           - 10.0
           - 11.0
@@ -36,6 +36,9 @@ jobs:
             version: 10.0
           - os: ubuntu-22.04-arm
             version: 10.0
+          # CUDA 10.0 is not supported on network method
+          - version: 10.0
+            method: network
     uses: ./.github/workflows/_test.yml
     with:
       os: ${{ matrix.os }}

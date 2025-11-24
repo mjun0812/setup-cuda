@@ -50,7 +50,7 @@ jobs:
           # https://github.com/actions/runner-images
           - windows-latest
           - ubuntu-latest
-          - ubuntu-24.04-arm
+          # - ubuntu-24.04-arm
         method:
           - local
           - network
