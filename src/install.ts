@@ -3,6 +3,7 @@ import * as exec from '@actions/exec';
 import * as fs from 'fs';
 import * as path from 'path';
 import { OS, Arch, LinuxDistribution, WindowsVersion } from './os_arch';
+import { debugLog } from './utils';
 import {
   getCudaLocalInstallerUrl,
   findCudaRepoAndPackageLinux,
@@ -27,7 +28,7 @@ async function installCudaLinuxLocal(installerPath: string, version: string): Pr
   const cudaPath = '/usr/local/cuda';
   const installArgs = ['--silent', '--toolkit', `--toolkitpath=${cudaPath}`];
 
-  core.debug(`Executing: ${command} ${installArgs.join(' ')}`);
+  debugLog(`Executing: ${command} ${installArgs.join(' ')}`);
   await exec.exec(command, installArgs);
 
   // Set environment variables
@@ -100,7 +101,7 @@ async function installCudaWindowsLocal(installerPath: string, version: string): 
 export async function installCudaLocal(version: string, os: OS, arch: Arch): Promise<string> {
   // Get CUDA installer URL
   const cudaInstallerUrl = await getCudaLocalInstallerUrl(version, os, arch);
-  core.debug(`CUDA installer URL: ${cudaInstallerUrl}`);
+  debugLog(`CUDA installer URL: ${cudaInstallerUrl}`);
 
   // Download CUDA installer
   core.info('Downloading CUDA installer...');

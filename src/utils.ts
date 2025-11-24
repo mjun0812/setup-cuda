@@ -1,3 +1,5 @@
+import * as core from '@actions/core';
+
 /**
  * Compare two version strings
  * @param a - First version string
@@ -25,4 +27,15 @@ export function compareVersions(a: string, b: string): number {
  */
 export function sortVersions(versions: string[]): string[] {
   return versions.sort(compareVersions);
+}
+
+/**
+ * Log debug message
+ * @param message - The message to log
+ */
+export function debugLog(message: string): void {
+  if (process.env.ACTIONS_STEP_DEBUG === 'true') {
+    core.info(`[DEBUG] ${message}`);
+  }
+  core.debug(message);
 }

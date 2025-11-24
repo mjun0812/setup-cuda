@@ -1,8 +1,7 @@
 import { HttpClient } from '@actions/http-client';
 import { OS, Arch, LinuxDistribution } from './os_arch';
-import { sortVersions, compareVersions } from './utils';
+import { sortVersions, compareVersions, debugLog } from './utils';
 import { CUDA_LINKS, START_SUPPORTED_CUDA_VERSION, OLD_CUDA_VERSIONS } from './const';
-import * as core from '@actions/core';
 
 /**
  * Normalize CUDA version for old
@@ -515,9 +514,9 @@ export async function findCudaRepoAndPackageLinux(
     }
   }
   if (!filename) {
-    core.debug(`repoFiles: ${repoFiles.join(', ')}`);
-    core.debug(`cudaRepoUrl: ${cudaRepoUrl}`);
-    core.debug(`filename: ${filename}`);
+    debugLog(`repoFiles: ${repoFiles.join(', ')}`);
+    debugLog(`cudaRepoUrl: ${cudaRepoUrl}`);
+    debugLog(`filename: ${filename}`);
     throw new Error(`CUDA repository file for ${cudaVersion} not found`);
   }
 
