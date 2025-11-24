@@ -41,3 +41,4 @@ jobs:
       os: ${{ matrix.os }}
       version: ${{ matrix.version }}
       method: ${{ matrix.method }}
+      debug: true

@@ -15,9 +15,8 @@ import * as io from '@actions/io';
 /**
  * Install CUDA on Linux
  * @param installerPath - Path to the CUDA installer (.run file)
- * @param version - CUDA version string (e.g., "12.3.0")
  */
-async function installCudaLinuxLocal(installerPath: string, version: string): Promise<void> {
+async function installCudaLinuxLocal(installerPath: string): Promise<void> {
   // https://docs.nvidia.com/cuda/cuda-installation-guide-linux/#runfile-installation
   core.info('Installing CUDA on Linux...');
   const command = `sudo sh ${installerPath}`;
@@ -30,23 +29,6 @@ async function installCudaLinuxLocal(installerPath: string, version: string): Pr
 
   debugLog(`Executing: ${command} ${installArgs.join(' ')}`);
   await exec.exec(command, installArgs);
-
-  // Set environment variables
-  core.info('Setting environment variables...');
-  const binPath = path.join(cudaPath, 'bin');
-  const libPath = path.join(cudaPath, 'lib64');
-
-  // Add to PATH
-  core.addPath(binPath);
-
-  // Set LD_LIBRARY_PATH
-  core.exportVariable('LD_LIBRARY_PATH', `${libPath}:${process.env.LD_LIBRARY_PATH || ''}`);
-
-  // Set CUDA_PATH
-  core.exportVariable('CUDA_PATH', cudaPath);
-  core.exportVariable('CUDA_HOME', cudaPath);
-
-  core.info(`CUDA ${version} installed successfully at ${cudaPath}`);
 }
 
 /**
@@ -74,21 +56,6 @@ async function installCudaWindowsLocal(installerPath: string, version: string): 
   if (!fs.existsSync(cudaPath)) {
     throw new Error(`CUDA installation failed. Path not found: ${cudaPath}`);
   }
-
-  // Set environment variables
-  core.info('Setting environment variables...');
-  const binPath = path.join(cudaPath, 'bin');
-  const libPath = path.join(cudaPath, 'lib', 'x64');
-
-  // Add to PATH
-  core.addPath(binPath);
-  core.addPath(libPath);
-
-  // Set CUDA_PATH
-  core.exportVariable('CUDA_PATH', cudaPath);
-  core.exportVariable('CUDA_HOME', cudaPath);
-
-  core.info(`CUDA ${version} installed successfully at ${cudaPath}`);
 }
 
 /**
@@ -117,7 +84,7 @@ export async function installCudaLocal(version: string, os: OS, arch: Arch): Pro
 
   // Install CUDA
   if (os === OS.LINUX) {
-    await installCudaLinuxLocal(installerPath, version);
+    await installCudaLinuxLocal(installerPath);
   } else if (os === OS.WINDOWS) {
     await installCudaWindowsLocal(installerPath, version);
   }

@@ -1,4 +1,5 @@
 import * as core from '@actions/core';
+import * as path from 'path';
 import {
   getOS,
   getArch,
@@ -11,6 +12,23 @@ import {
 } from './os_arch';
 import { findCudaVersion } from './cuda';
 import { installCudaLocal, installCudaNetwork } from './install';
+
+function setEnvironmentVariables(os: OS, cudaPath: string): void {
+  if (os === OS.LINUX) {
+    core.addPath(path.join(cudaPath, 'bin'));
+    core.exportVariable('CUDA_PATH', cudaPath);
+    core.exportVariable('CUDA_HOME', cudaPath);
+    core.exportVariable(
+      'LD_LIBRARY_PATH',
+      `${path.join(cudaPath, 'lib64')}:${process.env.LD_LIBRARY_PATH || ''}`
+    );
+  } else if (os === OS.WINDOWS) {
+    core.addPath(path.join(cudaPath, 'bin'));
+    core.addPath(path.join(cudaPath, 'lib', 'x64'));
+    core.exportVariable('CUDA_PATH', cudaPath);
+    core.exportVariable('CUDA_HOME', cudaPath);
+  }
+}
 
 async function run(): Promise<void> {
   try {
@@ -91,6 +109,9 @@ async function run(): Promise<void> {
     if (!cudaPath) {
       throw new Error(`CUDA installation failed for version ${targetCudaVersion}`);
     }
+
+    // Set environment variables
+    setEnvironmentVariables(osType, cudaPath);
 
     // Set outputs
     core.setOutput('version', targetCudaVersion);
