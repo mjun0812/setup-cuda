@@ -514,6 +514,7 @@ export async function findCudaRepoAndPackageLinux(
     }
   }
   if (!filename) {
+    debugLog(`osInfo: ${osInfo.id} ${osInfo.version} ${osInfo.name} ${osInfo.idLink}`);
     debugLog(`repoFiles: ${repoFiles.join(', ')}`);
     debugLog(`num of repoFiles: ${repoFiles.length}`);
     debugLog(`cudaRepoUrl: ${cudaRepoUrl}`);
