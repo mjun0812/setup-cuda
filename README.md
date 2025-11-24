@@ -6,6 +6,10 @@
 
 Set up a specific version of NVIDIA CUDA in GitHub Actions.
 
+[![github-sponsor](https://img.shields.io/badge/sponsor-30363D?style=for-the-badge&logo=GitHub-Sponsors&logoColor=#white)](https://github.com/sponsors/mjun0812)
+
+[![buy-me-a-coffee](https://img.shields.io/badge/Buy_Me_A_Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/mjun0812)
+
 ## Features
 
 - **Dynamic Version Selection**: Install any CUDA version without waiting for action updates
