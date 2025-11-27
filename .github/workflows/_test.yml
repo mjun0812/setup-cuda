@@ -63,7 +63,8 @@ jobs:
           version: ${{ inputs.version }}
           method: ${{ inputs.method }}
 
-      - name: Verify CUDA Installation
+      - name: Verify CUDA Installation (Linux)
+        if: runner.os == 'Linux'
         shell: bash
         run: |
           echo "CUDA Version: ${{ steps.setup-cuda.outputs.version }}"
@@ -78,6 +79,69 @@ jobs:
           fi
           ls $CUDA_PATH
           ls $CUDA_PATH/bin
+
+          # Check if nvcc exists
+          if command -v nvcc &> /dev/null; then
+            echo "nvcc found at: $(which nvcc)"
+            nvcc --version
+          else
+            echo "Error: nvcc not found in PATH"
+            exit 1
+          fi
+
+          # Verify CUDA path exists
+          if [ ! -d "$CUDA_PATH" ]; then
+            echo "Error: CUDA path does not exist: $CUDA_PATH"
+            exit 1
+          fi
+
+          echo "CUDA installation verified successfully"
+
+      - name: Verify CUDA Installation (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          Write-Host "CUDA Version: ${{ steps.setup-cuda.outputs.version }}"
+          Write-Host "CUDA Path: ${{ steps.setup-cuda.outputs.cuda-path }}"
+
+          Write-Host "PATH: $env:PATH"
+
+          # Check if CUDA_PATH is set
+          if (-not $env:CUDA_PATH) {
+            Write-Error "Error: CUDA_PATH is not set"
+            exit 1
+          }
+
+          # Check if nvcc exists
+          if (Get-Command nvcc -ErrorAction SilentlyContinue) {
+            Write-Host "nvcc found at: $((Get-Command nvcc).Source)"
+            nvcc --version
+          } else {
+            Write-Error "Error: nvcc not found in PATH"
+            exit 1
+          }
+
+          # Verify CUDA path exists
+          if (-not (Test-Path $env:CUDA_PATH)) {
+            Write-Error "Error: CUDA path does not exist: $env:CUDA_PATH"
+            exit 1
+          }
+
+          Write-Host "CUDA installation verified successfully"
+
+      - name: Verify CUDA Installation
+        shell: bash
+        run: |
+          echo "CUDA Version: ${{ steps.setup-cuda.outputs.version }}"
+          echo "CUDA Path: ${{ steps.setup-cuda.outputs.cuda-path }}"
+
+          echo "PATH: $PATH"
+
+          # Check if CUDA_PATH is set
+          if [ -z "$CUDA_PATH" ]; then
+            echo "Error: CUDA_PATH is not set"
+            exit 1
+          fi
 
           # Check if nvcc exists
           if command -v nvcc &> /dev/null; then
