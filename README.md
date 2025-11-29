@@ -19,7 +19,7 @@ Set up a specific version of NVIDIA CUDA in GitHub Actions.
 
 ## Tested Platforms
 
-- **Linux**: ubuntu-latest, ubuntu-24.04, ubuntu-22.04
+- **Linux**: ubuntu-latest, ubuntu-24.04, ubuntu-22.04, ubuntu-24.04-arm, ubuntu-22.04-arm 
 - **Windows**: windows-latest, windows-2025, windows-2022
 
 ## Quick Start
