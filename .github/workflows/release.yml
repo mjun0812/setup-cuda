@@ -54,5 +54,5 @@ jobs:
           GITHUB_REF_NAME=${{ github.ref_name }}
           MAJOR_TAG=${GITHUB_REF_NAME%%.*}
           echo "Updating $MAJOR_TAG to point to $GITHUB_REF_NAME"
-          git tag -fa $MAJOR_TAG
+          git tag -fa $MAJOR_TAG -m "$MAJOR_TAG"
           git push origin $MAJOR_TAG --force
