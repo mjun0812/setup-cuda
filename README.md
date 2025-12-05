@@ -13,13 +13,13 @@ Set up a specific version of NVIDIA CUDA in GitHub Actions.
 - 🚀 **Dynamic Version Selection**: Install any CUDA version without waiting for action updates
 - 🎯 **Flexible Version Specification**: Support for `latest`, `Major`, `Major.Minor`, or `Major.Minor.Patch` formats
 - ⚡️ **Automatic Installation Method Selection**: Intelligently chooses between network and local installers
-- 💻 **Cross-Platform Support**: Works on both Linux and Windows runners
+- 💻 **Cross-Platform Support**: Works on both Linux (x86_64 and ARM64) and Windows (x86_64) runners
 - 🛠️ **Environment Configuration**: Automatically sets up all necessary environment variables
 - ✅ **Supported Versions**: Supports CUDA versions >= 10.0
 
 ## Tested Platforms
 
-- **Linux**: ubuntu-latest, ubuntu-24.04, ubuntu-22.04, ubuntu-24.04-arm, ubuntu-22.04-arm 
+- **Linux**: ubuntu-latest, ubuntu-24.04, ubuntu-22.04, ubuntu-24.04-arm, ubuntu-22.04-arm
 - **Windows**: windows-latest, windows-2025, windows-2022
 
 ## Quick Start
@@ -199,3 +199,4 @@ If you encounter an error like `No space left on device`, you can try to expand 
 [Jimver/cuda-toolkit](https://github.com/Jimver/cuda-toolkit) is a same Github Action for installing NVIDIA CUDA.
 That action installs CUDA from hard-coded URLs, whereas this repository installs CUDA from dynamically generated URLs. Therefore, you can download the latest CUDA without waiting for the Action to be updated.
 In addition, it supports specifying versions as `latest` or by major/minor version, and automatically selects between `network` and `local` installers.
+Furthermore, this repository supports ARM64 architecture on Linux, which is not supported by [Jimver/cuda-toolkit](https://github.com/Jimver/cuda-toolkit).
