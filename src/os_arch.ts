@@ -1,5 +1,6 @@
 import * as os from 'os';
 import * as fs from 'fs';
+import { which } from '@actions/io';
 
 /**
  * Supported operating systems
@@ -170,4 +171,43 @@ export function getWindowsVersion(): WindowsVersion {
     release,
     build,
   };
+}
+
+/**
+ * Check if the distribution is Debian-based
+ * @param osInfo - Linux distribution information
+ * @returns True if the distribution is Debian-based
+ */
+export function isDebianBased(osInfo: LinuxDistribution): boolean {
+  return osInfo.id === 'debian' || osInfo.idLink.includes('debian');
+}
+
+/**
+ * Check if the distribution is Fedora-based
+ * @param osInfo - Linux distribution information
+ * @returns True if the distribution is Fedora-based
+ */
+export function isFedoraBased(osInfo: LinuxDistribution): boolean {
+  return osInfo.id === 'fedora' || osInfo.idLink.includes('fedora');
+}
+
+/**
+ * Get package manager command for the distribution
+ * @returns Package manager command
+ */
+export async function getPackageManagerCommand(osInfo: LinuxDistribution): Promise<string> {
+  if (isDebianBased(osInfo)) {
+    return 'apt';
+  } else if (isFedoraBased(osInfo)) {
+    // yum or dnf
+    const dnf = await which('dnf', true);
+    const yum = await which('yum', true);
+    if (dnf) {
+      return 'dnf';
+    } else if (yum) {
+      return 'yum';
+    }
+    throw new Error(`Package manager not found`);
+  }
+  throw new Error(`Unsupported distribution: ${osInfo.id}`);
 }

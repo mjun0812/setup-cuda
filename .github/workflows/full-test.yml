@@ -40,6 +40,29 @@ jobs:
     uses: ./.github/workflows/_test.yml
     with:
       os: ${{ matrix.os }}
+      container: ''
+      version: ${{ matrix.version }}
+      method: ${{ matrix.method }}
+      debug: true
+
+  Container-Test:
+    name: Container Test
+    strategy:
+      fail-fast: false
+      matrix:
+        container:
+          - 'almalinux:9'
+          - 'fedora:latest'
+          - 'ubuntu:24.04'
+        version:
+          - latest
+        method:
+          - local
+          - auto
+    uses: ./.github/workflows/_test.yml
+    with:
+      os: ubuntu-latest
+      container: ${{ matrix.container }}
       version: ${{ matrix.version }}
       method: ${{ matrix.method }}
       debug: true

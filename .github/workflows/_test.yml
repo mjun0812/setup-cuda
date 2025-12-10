@@ -7,6 +7,11 @@ on:
         description: 'OS to test'
         required: true
         type: string
+      container:
+        description: 'Docker image to use (optional, e.g., rockylinux:9)'
+        required: false
+        type: string
+        default: ''
       version:
         description: 'CUDA version to test'
         required: true
@@ -24,19 +29,32 @@ on:
 jobs:
   Test:
     runs-on: ${{ inputs.os }}
+    container: ${{ inputs.container || null }}
     env:
       ACTIONS_STEP_DEBUG: ${{ inputs.debug }}
       ACTIONS_RUNNER_DEBUG: ${{ inputs.debug }}
 
     steps:
       - name: Expand Disk Space
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && !inputs.container
         run: |
           df -h
           sudo rm -rf /usr/share/dotnet || true
           sudo rm -rf /usr/local/lib/android || true
           echo "-------"
           df -h
+
+      - name: Install System Dependencies (Container)
+        if: inputs.container
+        run: |
+          if command -v dnf &> /dev/null; then
+            dnf install -y libxml2 curl wget gcc gcc-c++ make
+          elif command -v yum &> /dev/null; then
+            yum install -y libxml2 curl wget gcc gcc-c++ make
+          elif command -v apt-get &> /dev/null; then
+            apt-get update
+            apt-get install -y libxml2 curl wget build-essential
+          fi
 
       - name: Checkout
         uses: actions/checkout@v5

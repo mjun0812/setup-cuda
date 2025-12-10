@@ -18755,13 +18755,13 @@ var require_io = __commonJS({
       });
     }
     exports2.mkdirP = mkdirP;
-    function which(tool, check) {
+    function which2(tool, check) {
       return __awaiter(this, void 0, void 0, function* () {
         if (!tool) {
           throw new Error("parameter 'tool' is required");
         }
         if (check) {
-          const result = yield which(tool, false);
+          const result = yield which2(tool, false);
           if (!result) {
             if (ioUtil.IS_WINDOWS) {
               throw new Error(`Unable to locate executable file: ${tool}. Please verify either the file path exists or the file can be found within a directory specified by the PATH environment variable. Also verify the file has a valid extension for an executable file.`);
@@ -18778,7 +18778,7 @@ var require_io = __commonJS({
         return "";
       });
     }
-    exports2.which = which;
+    exports2.which = which2;
     function findInPath(tool) {
       return __awaiter(this, void 0, void 0, function* () {
         if (!tool) {
@@ -22523,6 +22523,7 @@ var path2 = __toESM(require("path"));
 // src/os_arch.ts
 var os = __toESM(require("os"));
 var fs = __toESM(require("fs"));
+var import_io = __toESM(require_io());
 function getOS() {
   const platform2 = os.platform();
   switch (platform2) {
@@ -22618,6 +22619,27 @@ function getWindowsVersion() {
     release: release2,
     build
   };
+}
+function isDebianBased(osInfo) {
+  return osInfo.id === "debian" || osInfo.idLink.includes("debian");
+}
+function isFedoraBased(osInfo) {
+  return osInfo.id === "fedora" || osInfo.idLink.includes("fedora");
+}
+async function getPackageManagerCommand(osInfo) {
+  if (isDebianBased(osInfo)) {
+    return "apt";
+  } else if (isFedoraBased(osInfo)) {
+    const dnf = await (0, import_io.which)("dnf", true);
+    const yum = await (0, import_io.which)("yum", true);
+    if (dnf) {
+      return "dnf";
+    } else if (yum) {
+      return "yum";
+    }
+    throw new Error(`Package manager not found`);
+  }
+  throw new Error(`Unsupported distribution: ${osInfo.id}`);
 }
 
 // src/cuda.ts
@@ -22958,9 +22980,7 @@ async function findCudaNetworkInstallerWindows(version) {
   }
   return void 0;
 }
-async function findCudaRepoAndPackageLinux(cudaVersion, arch2, osInfo) {
-  const osList = await fetchCudaRepoOS();
-  let targetOsName;
+function buildTargetOsName(osInfo) {
   const id = osInfo.id.toLowerCase();
   const version = osInfo.version;
   let versionPart;
@@ -22969,10 +22989,9 @@ async function findCudaRepoAndPackageLinux(cudaVersion, arch2, osInfo) {
   } else {
     versionPart = version.split(".")[0];
   }
-  targetOsName = `${id}${versionPart}`;
-  if (!osList.includes(targetOsName)) {
-    throw new Error(`CUDA repository for ${targetOsName} not found`);
-  }
+  return `${id}${versionPart}`;
+}
+function buildCudaRepoUrl(targetOsName, arch2) {
   let cudaRepoUrl = `https://developer.download.nvidia.com/compute/cuda/repos/${targetOsName}`;
   if (arch2 === "x86_64" /* X86_64 */) {
     cudaRepoUrl += "/x86_64/";
@@ -22981,37 +23000,36 @@ async function findCudaRepoAndPackageLinux(cudaVersion, arch2, osInfo) {
   } else {
     throw new Error(`Unsupported architecture: ${arch2}`);
   }
-  let repoFiles = await fetchCudaRepoFiles(cudaRepoUrl);
-  let filename = void 0;
-  if (osInfo.idLink === "debian") {
+  return cudaRepoUrl;
+}
+function findRepoFilename(repoFiles, osInfo) {
+  if (isDebianBased(osInfo)) {
     const cudaKeyringPattern = /cuda-keyring_[\w.-]+\.deb/gi;
     const cudaKeyringMatches = repoFiles.filter((file) => cudaKeyringPattern.test(file)).sort();
     if (cudaKeyringMatches.length > 0) {
-      filename = cudaKeyringMatches[cudaKeyringMatches.length - 1];
+      return cudaKeyringMatches[cudaKeyringMatches.length - 1];
     }
-    if (!filename) {
-      const cudaPinPattern = /cuda-[\w.-]+\.pin/i;
-      const cudaPinMatches = repoFiles.filter((file) => cudaPinPattern.test(file)).sort();
-      if (cudaPinMatches.length > 0) {
-        filename = cudaPinMatches[cudaPinMatches.length - 1];
-      }
+    const cudaPinPattern = /cuda-[\w.-]+\.pin/i;
+    const cudaPinMatches = repoFiles.filter((file) => cudaPinPattern.test(file)).sort();
+    if (cudaPinMatches.length > 0) {
+      return cudaPinMatches[cudaPinMatches.length - 1];
     }
-  } else if (osInfo.idLink === "fedora") {
+  } else if (isFedoraBased(osInfo)) {
     const cudaRepoPattern = /cuda-[\w.-]+\.repo/i;
     const cudaRepoMatches = repoFiles.filter((file) => cudaRepoPattern.test(file)).sort();
     if (cudaRepoMatches.length > 0) {
-      filename = cudaRepoMatches[cudaRepoMatches.length - 1];
+      return cudaRepoMatches[cudaRepoMatches.length - 1];
     }
   }
-  if (!filename) {
-    throw new Error(`CUDA repository file for ${cudaVersion} not found`);
-  }
+  throw new Error(`CUDA repository file not found`);
+}
+function findAvailablePackages(repoFiles, cudaVersion, osInfo) {
   let availablePackages = [];
-  if (osInfo.idLink === "debian") {
+  if (isDebianBased(osInfo)) {
     availablePackages = repoFiles.filter(
       (file) => file.startsWith(`cuda-toolkit_${cudaVersion}`) || file.startsWith(`cuda_${cudaVersion}`)
     ).sort();
-  } else if (osInfo.idLink === "fedora") {
+  } else if (isFedoraBased(osInfo)) {
     availablePackages = repoFiles.filter(
       (file) => file.startsWith(`cuda-toolkit-${cudaVersion}`) || file.startsWith(`cuda-${cudaVersion}`)
     ).sort();
@@ -23019,24 +23037,36 @@ async function findCudaRepoAndPackageLinux(cudaVersion, arch2, osInfo) {
   if (availablePackages.length === 0) {
     throw new Error(`No available packages found for ${cudaVersion} on ${osInfo.id}`);
   }
-  let packageName = "";
-  if (osInfo.idLink === "debian") {
-    const filename2 = availablePackages[0];
-    const match = filename2.match(/^([^_]+)_([^_]+)_.*\.deb$/);
+  return availablePackages;
+}
+function extractPackageName(packageFile, osInfo) {
+  if (isDebianBased(osInfo)) {
+    const match = packageFile.match(/^([^_]+)_([^_]+)_.*\.deb$/);
     if (match) {
-      packageName = `${match[1]}=${match[2]}`;
-    } else {
-      packageName = filename2;
+      return `${match[1]}=${match[2]}`;
     }
-  } else if (osInfo.idLink === "fedora") {
-    const filename2 = availablePackages[availablePackages.length - 1];
-    const match = filename2.match(/^(.+)-(\d+\.\d+\.\d+)-(\d+)\..+\.rpm$/);
+    return packageFile;
+  } else if (isFedoraBased(osInfo)) {
+    const match = packageFile.match(/^(.+)-(\d+\.\d+\.\d+)-(\d+)\..+\.rpm$/);
     if (match) {
-      packageName = `${match[1]}-${match[2]}-${match[3]}`;
-    } else {
-      packageName = filename2;
+      return `${match[1]}-${match[2]}-${match[3]}`;
     }
+    return packageFile;
   }
+  return packageFile;
+}
+async function findCudaRepoAndPackageLinux(cudaVersion, arch2, osInfo) {
+  const osList = await fetchCudaRepoOS();
+  const targetOsName = buildTargetOsName(osInfo);
+  if (!osList.includes(targetOsName)) {
+    throw new Error(`CUDA repository for ${targetOsName} not found`);
+  }
+  const cudaRepoUrl = buildCudaRepoUrl(targetOsName, arch2);
+  const repoFiles = await fetchCudaRepoFiles(cudaRepoUrl);
+  const filename = findRepoFilename(repoFiles, osInfo);
+  const availablePackages = findAvailablePackages(repoFiles, cudaVersion, osInfo);
+  const selectedPackage = isDebianBased(osInfo) ? availablePackages[0] : availablePackages[availablePackages.length - 1];
+  const packageName = extractPackageName(selectedPackage, osInfo);
   return { repoUrl: `${cudaRepoUrl}${filename}`, packageName };
 }
 
@@ -23116,7 +23146,7 @@ async function installCudaLinuxNetwork(version, arch2, osInfo) {
   const packageName = cudaRepoAndPackage.packageName;
   let cudaPath = void 0;
   try {
-    if (osInfo.idLink === "debian") {
+    if (isDebianBased(osInfo)) {
       let repoFilePath;
       try {
         repoFilePath = await tc.downloadTool(repoUrl);
@@ -23135,10 +23165,11 @@ async function installCudaLinuxNetwork(version, arch2, osInfo) {
       }
       await exec.exec(`sudo apt-get install -y ${packageName}`);
       cudaPath = "/usr/local/cuda";
-    } else if (osInfo.idLink === "fedora") {
-      await exec.exec(`sudo dnf config-manager --add-repo ${repoUrl}`);
-      await exec.exec(`sudo dnf clean all`);
-      await exec.exec(`sudo dnf install -y ${packageName}`);
+    } else if (isFedoraBased(osInfo)) {
+      const packageManagerCommand = await getPackageManagerCommand(osInfo);
+      await exec.exec(`sudo ${packageManagerCommand} config-manager --add-repo ${repoUrl}`);
+      await exec.exec(`sudo ${packageManagerCommand} clean all`);
+      await exec.exec(`sudo ${packageManagerCommand} install -y ${packageName}`);
       cudaPath = "/usr/local/cuda";
     }
   } catch (error) {
