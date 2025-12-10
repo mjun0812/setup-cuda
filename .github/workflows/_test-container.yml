@@ -1,10 +1,15 @@
-name: _Test
+name: _Test_Container
 
 on:
   workflow_call:
     inputs:
       os:
         description: 'OS to test'
+        required: false
+        type: string
+        default: ubuntu-latest
+      container:
+        description: 'Docker image to use (optional, e.g., rockylinux:9)'
         required: true
         type: string
       version:
@@ -22,21 +27,54 @@ on:
         default: false
 
 jobs:
-  Test:
+  TestContainer:
     runs-on: ${{ inputs.os }}
+    container:
+      image: ${{ inputs.container }}
+      volumes:
+        - /usr/share/dotnet:/usr/share/dotnet
+        - /usr/local/lib/android:/usr/local/lib/android
     env:
       ACTIONS_STEP_DEBUG: ${{ inputs.debug }}
       ACTIONS_RUNNER_DEBUG: ${{ inputs.debug }}
+    defaults:
+      run:
+        shell: bash
 
     steps:
+      - name: Show Container Information
+        run: |
+          df -h
+          echo "-------"
+          lscpu
+          echo "-------"
+          cat /etc/os-release
+          echo "-------"
+          free -h
+
       - name: Expand Disk Space
-        if: runner.os == 'Linux'
         run: |
           df -h
           sudo rm -rf /usr/share/dotnet || true
           sudo rm -rf /usr/local/lib/android || true
           echo "-------"
           df -h
+
+      - name: Install System Dependencies (Container)
+        shell: bash
+        run: |
+          # POSIX-compatible redirection so it works even without bash
+          if command -v dnf >/dev/null 2>&1; then
+            echo "dnf found"
+            dnf install -y --allowerasing libxml2 wget gcc gcc-c++ make curl
+          elif command -v yum >/dev/null 2>&1; then
+            echo "yum found"
+            yum install -y libxml2 wget gcc gcc-c++ make curl
+          elif command -v apt-get >/dev/null 2>&1; then
+            echo "apt-get found"
+            apt-get update
+            apt-get install -y libxml2 curl wget build-essential
+          fi
 
       - name: Checkout
         uses: actions/checkout@v5
@@ -64,7 +102,6 @@ jobs:
           method: ${{ inputs.method }}
 
       - name: Verify CUDA Installation (Linux)
-        if: runner.os == 'Linux'
         shell: bash
         run: |
           echo "CUDA Version: ${{ steps.setup-cuda.outputs.version }}"
@@ -79,69 +116,6 @@ jobs:
           fi
           ls $CUDA_PATH
           ls $CUDA_PATH/bin
-
-          # Check if nvcc exists
-          if command -v nvcc &> /dev/null; then
-            echo "nvcc found at: $(which nvcc)"
-            nvcc --version
-          else
-            echo "Error: nvcc not found in PATH"
-            exit 1
-          fi
-
-          # Verify CUDA path exists
-          if [ ! -d "$CUDA_PATH" ]; then
-            echo "Error: CUDA path does not exist: $CUDA_PATH"
-            exit 1
-          fi
-
-          echo "CUDA installation verified successfully"
-
-      - name: Verify CUDA Installation (Windows)
-        if: runner.os == 'Windows'
-        shell: powershell
-        run: |
-          Write-Host "CUDA Version: ${{ steps.setup-cuda.outputs.version }}"
-          Write-Host "CUDA Path: ${{ steps.setup-cuda.outputs.cuda-path }}"
-
-          Write-Host "PATH: $env:PATH"
-
-          # Check if CUDA_PATH is set
-          if (-not $env:CUDA_PATH) {
-            Write-Error "Error: CUDA_PATH is not set"
-            exit 1
-          }
-
-          # Check if nvcc exists
-          if (Get-Command nvcc -ErrorAction SilentlyContinue) {
-            Write-Host "nvcc found at: $((Get-Command nvcc).Source)"
-            nvcc --version
-          } else {
-            Write-Error "Error: nvcc not found in PATH"
-            exit 1
-          }
-
-          # Verify CUDA path exists
-          if (-not (Test-Path $env:CUDA_PATH)) {
-            Write-Error "Error: CUDA path does not exist: $env:CUDA_PATH"
-            exit 1
-          }
-
-          Write-Host "CUDA installation verified successfully"
-
-      - name: Verify CUDA Installation
-        shell: bash
-        run: |
-          echo "CUDA Version: ${{ steps.setup-cuda.outputs.version }}"
-          echo "CUDA Path: ${{ steps.setup-cuda.outputs.cuda-path }}"
-
-          echo "PATH: $PATH"
-
-          # Check if CUDA_PATH is set
-          if [ -z "$CUDA_PATH" ]; then
-            echo "Error: CUDA_PATH is not set"
-            exit 1
-          fi
 
           # Check if nvcc exists
           if command -v nvcc &> /dev/null; then
