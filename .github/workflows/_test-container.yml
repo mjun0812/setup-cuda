@@ -42,15 +42,31 @@ jobs:
         shell: bash
 
     steps:
+      - name: Install System Dependencies (Container)
+        shell: bash
+        run: |
+          # POSIX-compatible redirection so it works even without bash
+          if command -v dnf >/dev/null 2>&1; then
+            echo "dnf found"
+            dnf install -y --allowerasing libxml2 wget gcc gcc-c++ make curl sudo git
+          elif command -v yum >/dev/null 2>&1; then
+            echo "yum found"
+            yum install -y libxml2 wget gcc gcc-c++ make curl sudo git
+          elif command -v apt-get >/dev/null 2>&1; then
+            echo "apt-get found"
+            apt-get update
+            apt-get install -y libxml2 curl wget build-essential sudo git
+          fi
+
       - name: Show Container Information
         run: |
-          df -h
+          df -h || true
           echo "-------"
-          lscpu
+          cat /proc/cpuinfo || true
           echo "-------"
-          cat /etc/os-release
+          cat /etc/os-release || true
           echo "-------"
-          free -h
+          free -h || true
 
       - name: Expand Disk Space
         run: |
@@ -59,22 +75,6 @@ jobs:
           sudo rm -rf /usr/local/lib/android || true
           echo "-------"
           df -h
-
-      - name: Install System Dependencies (Container)
-        shell: bash
-        run: |
-          # POSIX-compatible redirection so it works even without bash
-          if command -v dnf >/dev/null 2>&1; then
-            echo "dnf found"
-            dnf install -y --allowerasing libxml2 wget gcc gcc-c++ make curl
-          elif command -v yum >/dev/null 2>&1; then
-            echo "yum found"
-            yum install -y libxml2 wget gcc gcc-c++ make curl
-          elif command -v apt-get >/dev/null 2>&1; then
-            echo "apt-get found"
-            apt-get update
-            apt-get install -y libxml2 curl wget build-essential
-          fi
 
       - name: Checkout
         uses: actions/checkout@v5
