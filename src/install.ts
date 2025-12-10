@@ -2,7 +2,15 @@ import * as core from '@actions/core';
 import * as exec from '@actions/exec';
 import * as fs from 'fs';
 import * as path from 'path';
-import { OS, Arch, LinuxDistribution, WindowsVersion } from './os_arch';
+import {
+  OS,
+  Arch,
+  LinuxDistribution,
+  WindowsVersion,
+  isDebianBased,
+  isFedoraBased,
+  getPackageManagerCommand,
+} from './os_arch';
 import { debugLog } from './utils';
 import {
   getCudaLocalInstallerUrl,
@@ -134,7 +142,7 @@ async function installCudaLinuxNetwork(
 
   let cudaPath: string | undefined = undefined;
   try {
-    if (osInfo.idLink === 'debian') {
+    if (isDebianBased(osInfo)) {
       // Set up CUDA repository
       let repoFilePath: string;
       try {
@@ -156,10 +164,11 @@ async function installCudaLinuxNetwork(
       // Install CUDA toolkit
       await exec.exec(`sudo apt-get install -y ${packageName}`);
       cudaPath = '/usr/local/cuda';
-    } else if (osInfo.idLink === 'fedora') {
-      await exec.exec(`sudo dnf config-manager --add-repo ${repoUrl}`);
-      await exec.exec(`sudo dnf clean all`);
-      await exec.exec(`sudo dnf install -y ${packageName}`);
+    } else if (isFedoraBased(osInfo)) {
+      const packageManagerCommand = await getPackageManagerCommand(osInfo);
+      await exec.exec(`sudo ${packageManagerCommand} config-manager --add-repo ${repoUrl}`);
+      await exec.exec(`sudo ${packageManagerCommand} clean all`);
+      await exec.exec(`sudo ${packageManagerCommand} install -y ${packageName}`);
       cudaPath = '/usr/local/cuda';
     }
   } catch (error) {

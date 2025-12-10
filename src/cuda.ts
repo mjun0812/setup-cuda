@@ -1,5 +1,5 @@
 import { HttpClient } from '@actions/http-client';
-import { OS, Arch, LinuxDistribution } from './os_arch';
+import { OS, Arch, LinuxDistribution, isDebianBased, isFedoraBased } from './os_arch';
 import { sortVersions, compareVersions, debugLog } from './utils';
 import { CUDA_LINKS, START_SUPPORTED_CUDA_VERSION, OLD_CUDA_VERSIONS } from './const';
 
@@ -451,6 +451,158 @@ export async function findCudaNetworkInstallerWindows(
 }
 
 /**
+ * Build the target OS name for CUDA repository
+ * Different distributions use different version formats:
+ * - Ubuntu: major.minor -> ubuntu2204 (both major and minor, remove dots)
+ * - RHEL: major.minor -> rhel9 (major only)
+ * - Debian: major.minor -> debian12 (major only)
+ * - Fedora: single number -> fedora40
+ * @param osInfo - Linux distribution information
+ * @returns Target OS name string (e.g., "ubuntu2204", "rhel9")
+ */
+function buildTargetOsName(osInfo: LinuxDistribution): string {
+  const id = osInfo.id.toLowerCase();
+  const version = osInfo.version;
+
+  let versionPart: string;
+  if (id === 'ubuntu') {
+    // Ubuntu uses major.minor format, remove dots
+    versionPart = version.replace(/\./g, '');
+  } else {
+    // Most other distros use major version only
+    versionPart = version.split('.')[0];
+  }
+
+  return `${id}${versionPart}`;
+}
+
+/**
+ * Build the CUDA repository URL for the given target OS and architecture
+ * @param targetOsName - Target OS name (e.g., "ubuntu2204")
+ * @param arch - Architecture type
+ * @returns CUDA repository URL
+ * @throws Error if architecture is not supported
+ */
+function buildCudaRepoUrl(targetOsName: string, arch: Arch): string {
+  let cudaRepoUrl = `https://developer.download.nvidia.com/compute/cuda/repos/${targetOsName}`;
+
+  if (arch === Arch.X86_64) {
+    cudaRepoUrl += '/x86_64/';
+  } else if (arch === Arch.ARM64_SBSA) {
+    cudaRepoUrl += '/sbsa/';
+  } else {
+    throw new Error(`Unsupported architecture: ${arch}`);
+  }
+
+  return cudaRepoUrl;
+}
+
+/**
+ * Find the CUDA repository configuration filename from available files
+ * Debian-based: cuda-keyring*.deb or cuda-*.pin
+ * Fedora-based: cuda-*.repo
+ * @param repoFiles - Array of available repository files
+ * @param osInfo - Linux distribution information
+ * @returns Repository filename
+ * @throws Error if no repository file is found
+ */
+function findRepoFilename(repoFiles: string[], osInfo: LinuxDistribution): string {
+  if (isDebianBased(osInfo)) {
+    // Debian: cuda-keyring_<version>-<build>_all.deb
+    const cudaKeyringPattern = /cuda-keyring_[\w.-]+\.deb/gi;
+    const cudaKeyringMatches = repoFiles.filter((file) => cudaKeyringPattern.test(file)).sort();
+    if (cudaKeyringMatches.length > 0) {
+      return cudaKeyringMatches[cudaKeyringMatches.length - 1];
+    }
+
+    // Old Debian CUDA Repositories: cuda-*.pin
+    const cudaPinPattern = /cuda-[\w.-]+\.pin/i;
+    const cudaPinMatches = repoFiles.filter((file) => cudaPinPattern.test(file)).sort();
+    if (cudaPinMatches.length > 0) {
+      return cudaPinMatches[cudaPinMatches.length - 1];
+    }
+  } else if (isFedoraBased(osInfo)) {
+    // Fedora: cuda-<os><version>.repo
+    const cudaRepoPattern = /cuda-[\w.-]+\.repo/i;
+    const cudaRepoMatches = repoFiles.filter((file) => cudaRepoPattern.test(file)).sort();
+    if (cudaRepoMatches.length > 0) {
+      return cudaRepoMatches[cudaRepoMatches.length - 1];
+    }
+  }
+
+  throw new Error(`CUDA repository file not found`);
+}
+
+/**
+ * Find available CUDA packages from repository files
+ * @param repoFiles - Array of available repository files
+ * @param cudaVersion - CUDA version string
+ * @param osInfo - Linux distribution information
+ * @returns Array of available package filenames
+ * @throws Error if no packages are found
+ */
+function findAvailablePackages(
+  repoFiles: string[],
+  cudaVersion: string,
+  osInfo: LinuxDistribution
+): string[] {
+  let availablePackages: string[] = [];
+
+  if (isDebianBased(osInfo)) {
+    availablePackages = repoFiles
+      .filter(
+        (file) =>
+          file.startsWith(`cuda-toolkit_${cudaVersion}`) || file.startsWith(`cuda_${cudaVersion}`)
+      )
+      .sort();
+  } else if (isFedoraBased(osInfo)) {
+    availablePackages = repoFiles
+      .filter(
+        (file) =>
+          file.startsWith(`cuda-toolkit-${cudaVersion}`) || file.startsWith(`cuda-${cudaVersion}`)
+      )
+      .sort();
+  }
+
+  if (availablePackages.length === 0) {
+    throw new Error(`No available packages found for ${cudaVersion} on ${osInfo.id}`);
+  }
+
+  return availablePackages;
+}
+
+/**
+ * Extract package name from the package filename
+ * Debian: <package>_<version>_<arch>.deb -> <package>=<version>
+ * Fedora: <package>-<version>-<release>.<arch>.rpm -> <package>-<version>-<release>
+ * @param packageFile - Package filename
+ * @param osInfo - Linux distribution information
+ * @returns Formatted package name for installation
+ */
+function extractPackageName(packageFile: string, osInfo: LinuxDistribution): string {
+  if (isDebianBased(osInfo)) {
+    // debian: cuda-toolkit_<version> or cuda_<version>
+    // filename format: <package>_<version>_<arch>.deb
+    const match = packageFile.match(/^([^_]+)_([^_]+)_.*\.deb$/);
+    if (match) {
+      return `${match[1]}=${match[2]}`;
+    }
+    return packageFile;
+  } else if (isFedoraBased(osInfo)) {
+    // fedora: cuda-toolkit-<version> or cuda-<version>
+    // filename format: <package>-<version>-<release>.<arch>.rpm
+    // dnf install <package>-<version>-<release>
+    const match = packageFile.match(/^(.+)-(\d+\.\d+\.\d+)-(\d+)\..+\.rpm$/);
+    if (match) {
+      return `${match[1]}-${match[2]}-${match[3]}`;
+    }
+    return packageFile;
+  }
+
+  return packageFile;
+}
+
+/**
  * Find if a CUDA repository exists for the given OS configuration
  * @param cudaVersion - CUDA version string (e.g., "12.3.0")
  * @param arch - Architecture type
@@ -462,116 +614,28 @@ export async function findCudaRepoAndPackageLinux(
   arch: Arch,
   osInfo: LinuxDistribution
 ): Promise<{ repoUrl: string; packageName: string } | undefined> {
+  // Verify that the OS is supported
   const osList = await fetchCudaRepoOS();
-
-  let targetOsName: string;
-  const id = osInfo.id.toLowerCase();
-  const version = osInfo.version;
-
-  // Different distributions use different version formats:
-  // - Ubuntu: major.minor -> ubuntu2204 (both major and minor, remove dots)
-  // - RHEL: major.minor -> rhel9 (major only)
-  // - Debian: major.minor -> debian12 (major only)
-  // - Fedora: single number -> fedora40
-  let versionPart: string;
-  if (id === 'ubuntu') {
-    // Ubuntu uses major.minor format, remove dots
-    versionPart = version.replace(/\./g, '');
-  } else {
-    // Most other distros use major version only
-    versionPart = version.split('.')[0];
-  }
-  targetOsName = `${id}${versionPart}`;
+  const targetOsName = buildTargetOsName(osInfo);
   if (!osList.includes(targetOsName)) {
     throw new Error(`CUDA repository for ${targetOsName} not found`);
   }
 
-  let cudaRepoUrl = `https://developer.download.nvidia.com/compute/cuda/repos/${targetOsName}`;
-  if (arch === Arch.X86_64) {
-    cudaRepoUrl += '/x86_64/';
-  } else if (arch === Arch.ARM64_SBSA) {
-    cudaRepoUrl += '/sbsa/';
-  } else {
-    throw new Error(`Unsupported architecture: ${arch}`);
-  }
+  // Build repository URL and fetch available files
+  const cudaRepoUrl = buildCudaRepoUrl(targetOsName, arch);
+  const repoFiles = await fetchCudaRepoFiles(cudaRepoUrl);
 
-  let repoFiles = await fetchCudaRepoFiles(cudaRepoUrl);
+  // Find repository configuration file
+  const filename = findRepoFilename(repoFiles, osInfo);
 
-  // Find the CUDA repository filename
-  // Debian like OS: find cuda-keyring*.deb or cuda-*.pin
-  // Fedora like OS: find cuda-*.repo
-  let filename: string | undefined = undefined;
-  if (osInfo.idLink === 'debian') {
-    // Debian: cuda-keyring_<version>-<build>_all.deb
-    const cudaKeyringPattern = /cuda-keyring_[\w.-]+\.deb/gi;
-    const cudaKeyringMatches = repoFiles.filter((file) => cudaKeyringPattern.test(file)).sort();
-    if (cudaKeyringMatches.length > 0) {
-      filename = cudaKeyringMatches[cudaKeyringMatches.length - 1];
-    }
+  // Find available CUDA packages
+  const availablePackages = findAvailablePackages(repoFiles, cudaVersion, osInfo);
 
-    if (!filename) {
-      // Old Debian CUDA Repositories: cuda-*.pin
-      const cudaPinPattern = /cuda-[\w.-]+\.pin/i;
-      const cudaPinMatches = repoFiles.filter((file) => cudaPinPattern.test(file)).sort();
-      if (cudaPinMatches.length > 0) {
-        filename = cudaPinMatches[cudaPinMatches.length - 1];
-      }
-    }
-  } else if (osInfo.idLink === 'fedora') {
-    // Fedora: cuda-<os><version>.repo
-    const cudaRepoPattern = /cuda-[\w.-]+\.repo/i;
-    const cudaRepoMatches = repoFiles.filter((file) => cudaRepoPattern.test(file)).sort();
-    if (cudaRepoMatches.length > 0) {
-      filename = cudaRepoMatches[cudaRepoMatches.length - 1];
-    }
-  }
-  if (!filename) {
-    throw new Error(`CUDA repository file for ${cudaVersion} not found`);
-  }
-
-  // Check Available Packages of CUDA from the repository
-  let availablePackages: string[] = [];
-  if (osInfo.idLink === 'debian') {
-    availablePackages = repoFiles
-      .filter(
-        (file) =>
-          file.startsWith(`cuda-toolkit_${cudaVersion}`) || file.startsWith(`cuda_${cudaVersion}`)
-      )
-      .sort();
-  } else if (osInfo.idLink === 'fedora') {
-    availablePackages = repoFiles
-      .filter(
-        (file) =>
-          file.startsWith(`cuda-toolkit-${cudaVersion}`) || file.startsWith(`cuda-${cudaVersion}`)
-      )
-      .sort();
-  }
-  if (availablePackages.length === 0) {
-    throw new Error(`No available packages found for ${cudaVersion} on ${osInfo.id}`);
-  }
-  let packageName: string = '';
-  if (osInfo.idLink === 'debian') {
-    // debian: cuda-toolkit_<version> or cuda_<version>
-    // filename format: <package>_<version>_<arch>.deb
-    const filename = availablePackages[0];
-    const match = filename.match(/^([^_]+)_([^_]+)_.*\.deb$/);
-    if (match) {
-      packageName = `${match[1]}=${match[2]}`;
-    } else {
-      packageName = filename;
-    }
-  } else if (osInfo.idLink === 'fedora') {
-    // fedora: cuda-toolkit-<version> or cuda-<version>
-    // filename format: <package>-<version>-<release>.<arch>.rpm
-    // dnf install <package>-<version>-<release>
-    const filename = availablePackages[availablePackages.length - 1];
-    const match = filename.match(/^(.+)-(\d+\.\d+\.\d+)-(\d+)\..+\.rpm$/);
-    if (match) {
-      packageName = `${match[1]}-${match[2]}-${match[3]}`;
-    } else {
-      packageName = filename;
-    }
-  }
+  // Extract package name from the first (Debian) or last (Fedora) package
+  const selectedPackage = isDebianBased(osInfo)
+    ? availablePackages[0]
+    : availablePackages[availablePackages.length - 1];
+  const packageName = extractPackageName(selectedPackage, osInfo);
 
   return { repoUrl: `${cudaRepoUrl}${filename}`, packageName: packageName };
 }
