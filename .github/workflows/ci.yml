@@ -43,6 +43,7 @@ jobs:
 
   Test:
     name: Small Test
+    needs: [Format-Lint-TypeCheck]
     strategy:
       fail-fast: false
       matrix:

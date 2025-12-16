@@ -166,7 +166,9 @@ async function installCudaLinuxNetwork(
         await exec.exec(`${sudoPrefix} dpkg -i ${repoFilePath}`.trim());
         await exec.exec(`${sudoPrefix} apt-get update`.trim());
       } else if (repoUrl.endsWith('.pin')) {
-        await exec.exec(`${sudoPrefix} mv ${repoFilePath} /etc/apt/preferences.d/cuda-repository-pin-600`.trim());
+        await exec.exec(
+          `${sudoPrefix} mv ${repoFilePath} /etc/apt/preferences.d/cuda-repository-pin-600`.trim()
+        );
         const repoRootUrl = repoUrl.replace(/\/[\w.-]+\.pin$/, '');
         await exec.exec(`${sudoPrefix} add-apt-repository "deb ${repoRootUrl} /"`.trim());
         await exec.exec(`${sudoPrefix} apt-get update`.trim());
@@ -176,7 +178,9 @@ async function installCudaLinuxNetwork(
       cudaPath = '/usr/local/cuda';
     } else if (isFedoraBased(osInfo)) {
       const packageManagerCommand = await getPackageManagerCommand(osInfo);
-      await exec.exec(`${sudoPrefix} ${packageManagerCommand} config-manager --add-repo ${repoUrl}`.trim());
+      await exec.exec(
+        `${sudoPrefix} ${packageManagerCommand} config-manager --add-repo ${repoUrl}`.trim()
+      );
       await exec.exec(`${sudoPrefix} ${packageManagerCommand} clean all`.trim());
       await exec.exec(`${sudoPrefix} ${packageManagerCommand} install -y ${packageName}`.trim());
       cudaPath = '/usr/local/cuda';

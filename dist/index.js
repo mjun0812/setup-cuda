@@ -22668,6 +22668,12 @@ function debugLog(message) {
   }
   core.debug(message);
 }
+function hasRootPrivileges() {
+  if (process.getuid && typeof process.getuid === "function") {
+    return process.getuid() === 0;
+  }
+  return false;
+}
 
 // src/const.ts
 var START_SUPPORTED_CUDA_VERSION = "10.0";
@@ -23077,9 +23083,13 @@ var fs2 = __toESM(require("fs"));
 var path = __toESM(require("path"));
 var tc = __toESM(require_tool_cache());
 var io = __toESM(require_io());
+function getSudoPrefix() {
+  return hasRootPrivileges() ? "" : "sudo";
+}
 async function installCudaLinuxLocal(installerPath) {
   core2.info("Installing CUDA on Linux...");
-  const command = `sudo sh ${installerPath}`;
+  const sudoPrefix = getSudoPrefix();
+  const command = `${sudoPrefix} sh ${installerPath}`.trim();
   const installArgs = ["--silent", "--override", "--toolkit"];
   debugLog(`Executing: ${command} ${installArgs.join(" ")}`);
   await exec.exec(command, installArgs);
@@ -23144,6 +23154,7 @@ async function installCudaLinuxNetwork(version, arch2, osInfo) {
   }
   const repoUrl = cudaRepoAndPackage.repoUrl;
   const packageName = cudaRepoAndPackage.packageName;
+  const sudoPrefix = getSudoPrefix();
   let cudaPath = void 0;
   try {
     if (isDebianBased(osInfo)) {
@@ -23155,21 +23166,25 @@ async function installCudaLinuxNetwork(version, arch2, osInfo) {
       }
       repoFilePath = path.resolve(repoFilePath);
       if (repoUrl.endsWith(".deb")) {
-        await exec.exec(`sudo dpkg -i ${repoFilePath}`);
-        await exec.exec(`sudo apt-get update`);
+        await exec.exec(`${sudoPrefix} dpkg -i ${repoFilePath}`.trim());
+        await exec.exec(`${sudoPrefix} apt-get update`.trim());
       } else if (repoUrl.endsWith(".pin")) {
-        await exec.exec(`sudo mv ${repoFilePath} /etc/apt/preferences.d/cuda-repository-pin-600`);
+        await exec.exec(
+          `${sudoPrefix} mv ${repoFilePath} /etc/apt/preferences.d/cuda-repository-pin-600`.trim()
+        );
         const repoRootUrl = repoUrl.replace(/\/[\w.-]+\.pin$/, "");
-        await exec.exec(`sudo add-apt-repository "deb ${repoRootUrl} /"`);
-        await exec.exec(`sudo apt-get update`);
+        await exec.exec(`${sudoPrefix} add-apt-repository "deb ${repoRootUrl} /"`.trim());
+        await exec.exec(`${sudoPrefix} apt-get update`.trim());
       }
-      await exec.exec(`sudo apt-get install -y ${packageName}`);
+      await exec.exec(`${sudoPrefix} apt-get install -y ${packageName}`.trim());
       cudaPath = "/usr/local/cuda";
     } else if (isFedoraBased(osInfo)) {
       const packageManagerCommand = await getPackageManagerCommand(osInfo);
-      await exec.exec(`sudo ${packageManagerCommand} config-manager --add-repo ${repoUrl}`);
-      await exec.exec(`sudo ${packageManagerCommand} clean all`);
-      await exec.exec(`sudo ${packageManagerCommand} install -y ${packageName}`);
+      await exec.exec(
+        `${sudoPrefix} ${packageManagerCommand} config-manager --add-repo ${repoUrl}`.trim()
+      );
+      await exec.exec(`${sudoPrefix} ${packageManagerCommand} clean all`.trim());
+      await exec.exec(`${sudoPrefix} ${packageManagerCommand} install -y ${packageName}`.trim());
       cudaPath = "/usr/local/cuda";
     }
   } catch (error) {
