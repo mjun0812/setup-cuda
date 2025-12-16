@@ -71,8 +71,8 @@ jobs:
       - name: Expand Disk Space
         run: |
           df -h
-          sudo rm -rf /usr/share/dotnet || true
-          sudo rm -rf /usr/local/lib/android || true
+          rm -rf /usr/share/dotnet || true
+          rm -rf /usr/local/lib/android || true
           echo "-------"
           df -h
 

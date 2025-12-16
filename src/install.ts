@@ -11,7 +11,7 @@ import {
   isFedoraBased,
   getPackageManagerCommand,
 } from './os_arch';
-import { debugLog } from './utils';
+import { debugLog, hasRootPrivileges } from './utils';
 import {
   getCudaLocalInstallerUrl,
   findCudaRepoAndPackageLinux,
@@ -21,13 +21,22 @@ import * as tc from '@actions/tool-cache';
 import * as io from '@actions/io';
 
 /**
+ * Get sudo prefix for command execution
+ * @returns 'sudo' if root privileges are not present, empty string otherwise
+ */
+function getSudoPrefix(): string {
+  return hasRootPrivileges() ? '' : 'sudo';
+}
+
+/**
  * Install CUDA on Linux
  * @param installerPath - Path to the CUDA installer (.run file)
  */
 async function installCudaLinuxLocal(installerPath: string): Promise<void> {
   // https://docs.nvidia.com/cuda/cuda-installation-guide-linux/#runfile-installation
   core.info('Installing CUDA on Linux...');
-  const command = `sudo sh ${installerPath}`;
+  const sudoPrefix = getSudoPrefix();
+  const command = `${sudoPrefix} sh ${installerPath}`.trim();
 
   // Install CUDA toolkit only (without driver)
   // --silent: Run installer in silent mode
@@ -140,6 +149,7 @@ async function installCudaLinuxNetwork(
   const repoUrl = cudaRepoAndPackage.repoUrl;
   const packageName = cudaRepoAndPackage.packageName;
 
+  const sudoPrefix = getSudoPrefix();
   let cudaPath: string | undefined = undefined;
   try {
     if (isDebianBased(osInfo)) {
@@ -153,22 +163,22 @@ async function installCudaLinuxNetwork(
       repoFilePath = path.resolve(repoFilePath);
 
       if (repoUrl.endsWith('.deb')) {
-        await exec.exec(`sudo dpkg -i ${repoFilePath}`);
-        await exec.exec(`sudo apt-get update`);
+        await exec.exec(`${sudoPrefix} dpkg -i ${repoFilePath}`.trim());
+        await exec.exec(`${sudoPrefix} apt-get update`.trim());
       } else if (repoUrl.endsWith('.pin')) {
-        await exec.exec(`sudo mv ${repoFilePath} /etc/apt/preferences.d/cuda-repository-pin-600`);
+        await exec.exec(`${sudoPrefix} mv ${repoFilePath} /etc/apt/preferences.d/cuda-repository-pin-600`.trim());
         const repoRootUrl = repoUrl.replace(/\/[\w.-]+\.pin$/, '');
-        await exec.exec(`sudo add-apt-repository "deb ${repoRootUrl} /"`);
-        await exec.exec(`sudo apt-get update`);
+        await exec.exec(`${sudoPrefix} add-apt-repository "deb ${repoRootUrl} /"`.trim());
+        await exec.exec(`${sudoPrefix} apt-get update`.trim());
       }
       // Install CUDA toolkit
-      await exec.exec(`sudo apt-get install -y ${packageName}`);
+      await exec.exec(`${sudoPrefix} apt-get install -y ${packageName}`.trim());
       cudaPath = '/usr/local/cuda';
     } else if (isFedoraBased(osInfo)) {
       const packageManagerCommand = await getPackageManagerCommand(osInfo);
-      await exec.exec(`sudo ${packageManagerCommand} config-manager --add-repo ${repoUrl}`);
-      await exec.exec(`sudo ${packageManagerCommand} clean all`);
-      await exec.exec(`sudo ${packageManagerCommand} install -y ${packageName}`);
+      await exec.exec(`${sudoPrefix} ${packageManagerCommand} config-manager --add-repo ${repoUrl}`.trim());
+      await exec.exec(`${sudoPrefix} ${packageManagerCommand} clean all`.trim());
+      await exec.exec(`${sudoPrefix} ${packageManagerCommand} install -y ${packageName}`.trim());
       cudaPath = '/usr/local/cuda';
     }
   } catch (error) {

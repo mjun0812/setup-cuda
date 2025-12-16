@@ -39,3 +39,18 @@ export function debugLog(message: string): void {
   }
   core.debug(message);
 }
+
+/**
+ * Check if the current process has root/administrator privileges
+ * @returns true if running with root/admin privileges, false otherwise
+ */
+export function hasRootPrivileges(): boolean {
+  // On Unix-like systems (Linux, macOS), check if UID is 0
+  if (process.getuid && typeof process.getuid === 'function') {
+    return process.getuid() === 0;
+  }
+
+  // On Windows or systems without getuid, assume no root privileges
+  // Note: Proper Windows admin check would require native modules
+  return false;
+}
