@@ -30,7 +30,7 @@ steps:
   - name: Setup CUDA
     uses: mjun0812/setup-cuda@v1
     with:
-      version: '12.4'
+      version: '13.0'
 ```
 
 ## Usage Examples
@@ -51,20 +51,20 @@ The latest patch version will be automatically selected.
 
 ```yaml
 steps:
-  - name: Setup CUDA 12.4
+  - name: Setup CUDA 13.0
     uses: mjun0812/setup-cuda@v1
     with:
-      version: '12.4'
+      version: '13.0'
 ```
 
 ### Install a specific patch version
 
 ```yaml
 steps:
-  - name: Setup CUDA 12.4.1
+  - name: Setup CUDA 13.0.1
     uses: mjun0812/setup-cuda@v1
     with:
-      version: '12.4.1'
+      version: '13.0.1'
 ```
 
 ### Specify installation method
@@ -74,7 +74,7 @@ steps:
   - name: Setup CUDA with network installer
     uses: mjun0812/setup-cuda@v1
     with:
-      version: '12.4'
+      version: '13.0'
       method: 'network'  # or 'local', 'auto'
 ```
 
@@ -106,7 +106,7 @@ TestContainer:
     - name: Setup CUDA
       uses: mjun0812/setup-cuda@v1
       with:
-        version: '12.4'
+        version: '13.0'
 ```
 
 ## Inputs
@@ -119,8 +119,8 @@ TestContainer:
 
 - `latest`: Install the latest available version
 - `Major` (e.g., `13`): Install the latest minor version for the specified major version
-- `Major.Minor` (e.g., `12.4`): Install the latest patch version for the specified major.minor version
-- `Major.Minor.Patch` (e.g., `12.4.1`): Install the exact version specified
+- `Major.Minor` (e.g., `13.0`): Install the latest patch version for the specified major.minor version
+- `Major.Minor.Patch` (e.g., `13.0.1`): Install the exact version specified
 
 **Required**: No
 **Default**: `latest`
@@ -142,7 +142,7 @@ TestContainer:
 
 ### `version`
 
-The full version string of NVIDIA CUDA that was actually installed (e.g., `12.4.1`).
+The full version string of NVIDIA CUDA that was actually installed (e.g., `13.0.1`).
 
 **Example**:
 
@@ -151,7 +151,7 @@ The full version string of NVIDIA CUDA that was actually installed (e.g., `12.4.
   id: cuda
   uses: mjun0812/setup-cuda@v1
   with:
-    version: '12.4'
+    version: '13.0'
 
 - name: Print installed version
   run: echo "Installed CUDA version ${{ steps.cuda.outputs.version }}"
@@ -200,7 +200,7 @@ If the network installer fails, the action will automatically fall back to the l
 - name: Setup CUDA with local installer
   uses: mjun0812/setup-cuda@v1
   with:
-    version: '12.4'
+    version: '13.0'
     method: 'local'
 ```
 
