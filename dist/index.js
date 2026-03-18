@@ -90,11 +90,11 @@ var require_command = __commonJS({
     };
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.issue = exports2.issueCommand = void 0;
-    var os2 = __importStar(require("os"));
+    var os3 = __importStar(require("os"));
     var utils_1 = require_utils();
     function issueCommand(command, properties, message) {
       const cmd = new Command(command, properties, message);
-      process.stdout.write(cmd.toString() + os2.EOL);
+      process.stdout.write(cmd.toString() + os3.EOL);
     }
     exports2.issueCommand = issueCommand;
     function issue(name, message = "") {
@@ -178,7 +178,7 @@ var require_file_command = __commonJS({
     exports2.prepareKeyValueMessage = exports2.issueFileCommand = void 0;
     var crypto = __importStar(require("crypto"));
     var fs3 = __importStar(require("fs"));
-    var os2 = __importStar(require("os"));
+    var os3 = __importStar(require("os"));
     var utils_1 = require_utils();
     function issueFileCommand(command, message) {
       const filePath = process.env[`GITHUB_${command}`];
@@ -188,7 +188,7 @@ var require_file_command = __commonJS({
       if (!fs3.existsSync(filePath)) {
         throw new Error(`Missing file at path: ${filePath}`);
       }
-      fs3.appendFileSync(filePath, `${(0, utils_1.toCommandValue)(message)}${os2.EOL}`, {
+      fs3.appendFileSync(filePath, `${(0, utils_1.toCommandValue)(message)}${os3.EOL}`, {
         encoding: "utf8"
       });
     }
@@ -202,7 +202,7 @@ var require_file_command = __commonJS({
       if (convertedValue.includes(delimiter)) {
         throw new Error(`Unexpected input: value should not contain the delimiter "${delimiter}"`);
       }
-      return `${key}<<${delimiter}${os2.EOL}${convertedValue}${os2.EOL}${delimiter}`;
+      return `${key}<<${delimiter}${os3.EOL}${convertedValue}${os3.EOL}${delimiter}`;
     }
     exports2.prepareKeyValueMessage = prepareKeyValueMessage;
   }
@@ -18925,7 +18925,7 @@ var require_toolrunner = __commonJS({
     };
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.argStringToArray = exports2.ToolRunner = void 0;
-    var os2 = __importStar(require("os"));
+    var os3 = __importStar(require("os"));
     var events = __importStar(require("events"));
     var child = __importStar(require("child_process"));
     var path3 = __importStar(require("path"));
@@ -18980,12 +18980,12 @@ var require_toolrunner = __commonJS({
       _processLineBuffer(data, strBuffer, onLine) {
         try {
           let s = strBuffer + data.toString();
-          let n = s.indexOf(os2.EOL);
+          let n = s.indexOf(os3.EOL);
           while (n > -1) {
             const line = s.substring(0, n);
             onLine(line);
-            s = s.substring(n + os2.EOL.length);
-            n = s.indexOf(os2.EOL);
+            s = s.substring(n + os3.EOL.length);
+            n = s.indexOf(os3.EOL);
           }
           return s;
         } catch (err) {
@@ -19154,7 +19154,7 @@ var require_toolrunner = __commonJS({
             }
             const optionsNonNull = this._cloneExecOptions(this.options);
             if (!optionsNonNull.silent && optionsNonNull.outStream) {
-              optionsNonNull.outStream.write(this._getCommandString(optionsNonNull) + os2.EOL);
+              optionsNonNull.outStream.write(this._getCommandString(optionsNonNull) + os3.EOL);
             }
             const state = new ExecState(optionsNonNull, this.toolPath);
             state.on("debug", (message) => {
@@ -19642,7 +19642,7 @@ var require_core = __commonJS({
     var command_1 = require_command();
     var file_command_1 = require_file_command();
     var utils_1 = require_utils();
-    var os2 = __importStar(require("os"));
+    var os3 = __importStar(require("os"));
     var path3 = __importStar(require("path"));
     var oidc_utils_1 = require_oidc_utils();
     var ExitCode;
@@ -19710,7 +19710,7 @@ Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
       if (filePath) {
         return (0, file_command_1.issueFileCommand)("OUTPUT", (0, file_command_1.prepareKeyValueMessage)(name, value));
       }
-      process.stdout.write(os2.EOL);
+      process.stdout.write(os3.EOL);
       (0, command_1.issueCommand)("set-output", { name }, (0, utils_1.toCommandValue)(value));
     }
     exports2.setOutput = setOutput2;
@@ -19744,7 +19744,7 @@ Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
     }
     exports2.notice = notice;
     function info4(message) {
-      process.stdout.write(message + os2.EOL);
+      process.stdout.write(message + os3.EOL);
     }
     exports2.info = info4;
     function startGroup(name) {
@@ -21789,12 +21789,12 @@ var require_manifest = __commonJS({
     exports2._readLinuxVersionFile = exports2._getOsVersion = exports2._findMatch = void 0;
     var semver = __importStar(require_semver());
     var core_1 = require_core();
-    var os2 = require("os");
+    var os3 = require("os");
     var cp = require("child_process");
     var fs3 = require("fs");
     function _findMatch(versionSpec, stable, candidates, archFilter) {
       return __awaiter(this, void 0, void 0, function* () {
-        const platFilter = os2.platform();
+        const platFilter = os3.platform();
         let result;
         let match;
         let file;
@@ -21831,7 +21831,7 @@ var require_manifest = __commonJS({
     }
     exports2._findMatch = _findMatch;
     function _getOsVersion() {
-      const plat = os2.platform();
+      const plat = os3.platform();
       let version = "";
       if (plat === "darwin") {
         version = cp.execSync("sw_vers -productVersion").toString();
@@ -22037,7 +22037,7 @@ var require_tool_cache = __commonJS({
     var crypto = __importStar(require("crypto"));
     var fs3 = __importStar(require("fs"));
     var mm = __importStar(require_manifest());
-    var os2 = __importStar(require("os"));
+    var os3 = __importStar(require("os"));
     var path3 = __importStar(require("path"));
     var httpm = __importStar(require_lib());
     var semver = __importStar(require_semver());
@@ -22315,7 +22315,7 @@ var require_tool_cache = __commonJS({
     function cacheDir(sourceDir, tool, version, arch2) {
       return __awaiter(this, void 0, void 0, function* () {
         version = semver.clean(version) || version;
-        arch2 = arch2 || os2.arch();
+        arch2 = arch2 || os3.arch();
         core4.debug(`Caching tool ${tool} ${version} ${arch2}`);
         core4.debug(`source dir: ${sourceDir}`);
         if (!fs3.statSync(sourceDir).isDirectory()) {
@@ -22334,7 +22334,7 @@ var require_tool_cache = __commonJS({
     function cacheFile(sourceFile, targetFile, tool, version, arch2) {
       return __awaiter(this, void 0, void 0, function* () {
         version = semver.clean(version) || version;
-        arch2 = arch2 || os2.arch();
+        arch2 = arch2 || os3.arch();
         core4.debug(`Caching tool ${tool} ${version} ${arch2}`);
         core4.debug(`source file: ${sourceFile}`);
         if (!fs3.statSync(sourceFile).isFile()) {
@@ -22356,7 +22356,7 @@ var require_tool_cache = __commonJS({
       if (!versionSpec) {
         throw new Error("versionSpec parameter is required");
       }
-      arch2 = arch2 || os2.arch();
+      arch2 = arch2 || os3.arch();
       if (!isExplicitVersion(versionSpec)) {
         const localVersions = findAllVersions(toolName, arch2);
         const match = evaluateVersions(localVersions, versionSpec);
@@ -22379,7 +22379,7 @@ var require_tool_cache = __commonJS({
     exports2.find = find;
     function findAllVersions(toolName, arch2) {
       const versions = [];
-      arch2 = arch2 || os2.arch();
+      arch2 = arch2 || os3.arch();
       const toolPath = path3.join(_getCacheDirectory(), toolName);
       if (fs3.existsSync(toolPath)) {
         const children = fs3.readdirSync(toolPath);
@@ -22430,7 +22430,7 @@ var require_tool_cache = __commonJS({
       });
     }
     exports2.getManifestFromRepo = getManifestFromRepo;
-    function findFromManifest(versionSpec, stable, manifest, archFilter = os2.arch()) {
+    function findFromManifest(versionSpec, stable, manifest, archFilter = os3.arch()) {
       return __awaiter(this, void 0, void 0, function* () {
         const match = yield mm._findMatch(versionSpec, stable, manifest, archFilter);
         return match;
@@ -22864,36 +22864,36 @@ async function findCudaVersion(inputVersion) {
   }
   return void 0;
 }
-async function getCudaLocalInstallerUrl(version, os2, arch2) {
+async function getCudaLocalInstallerUrl(version, os3, arch2) {
   if (compareVersions(version, START_SUPPORTED_CUDA_VERSION) < 0) {
     throw new Error(`CUDA version ${version} is not supported`);
   }
   const majorVersion = parseInt(version.split(".")[0]);
-  if (majorVersion <= 10 && os2 === "linux" /* LINUX */ && arch2 === "arm64-sbsa" /* ARM64_SBSA */) {
+  if (majorVersion <= 10 && os3 === "linux" /* LINUX */ && arch2 === "arm64-sbsa" /* ARM64_SBSA */) {
     throw new Error(
       `CUDA version ${version} is not supported on Linux with Arm architecture for CUDA 10 and earlier`
     );
   }
   if (version in CUDA_LINKS) {
     const link = CUDA_LINKS[version];
-    if (os2 === "linux" /* LINUX */ && arch2 === "x86_64" /* X86_64 */ && link.linuxX86Url) {
+    if (os3 === "linux" /* LINUX */ && arch2 === "x86_64" /* X86_64 */ && link.linuxX86Url) {
       return link.linuxX86Url;
     }
-    if (os2 === "linux" /* LINUX */ && arch2 === "arm64-sbsa" /* ARM64_SBSA */ && link.linuxArm64Url) {
+    if (os3 === "linux" /* LINUX */ && arch2 === "arm64-sbsa" /* ARM64_SBSA */ && link.linuxArm64Url) {
       return link.linuxArm64Url;
     }
-    if (os2 === "windows" /* WINDOWS */ && link.windowsLocalInstallerUrl) {
+    if (os3 === "windows" /* WINDOWS */ && link.windowsLocalInstallerUrl) {
       return link.windowsLocalInstallerUrl;
     }
   }
-  if (majorVersion <= 10 && os2 === "linux" /* LINUX */ && arch2 === "x86_64" /* X86_64 */) {
+  if (majorVersion <= 10 && os3 === "linux" /* LINUX */ && arch2 === "x86_64" /* X86_64 */) {
     return CUDA_LINKS[version].linuxX86Url;
-  } else if (majorVersion <= 10 && os2 === "windows" /* WINDOWS */) {
+  } else if (majorVersion <= 10 && os3 === "windows" /* WINDOWS */) {
     return CUDA_LINKS[version].windowsLocalInstallerUrl;
   }
   const md5sums = await fetchMd5sum(version);
   let targetFilename = void 0;
-  if (os2 === "linux" /* LINUX */) {
+  if (os3 === "linux" /* LINUX */) {
     let pattern;
     if (arch2 === "x86_64" /* X86_64 */) {
       pattern = new RegExp(
@@ -22913,7 +22913,7 @@ async function getCudaLocalInstallerUrl(version, os2, arch2) {
         break;
       }
     }
-  } else if (os2 === "windows" /* WINDOWS */) {
+  } else if (os3 === "windows" /* WINDOWS */) {
     let windowsFilename;
     let win10Filename;
     for (const [filename] of Object.entries(md5sums)) {
@@ -22928,7 +22928,7 @@ async function getCudaLocalInstallerUrl(version, os2, arch2) {
   }
   if (!targetFilename) {
     throw new Error(
-      `No matching CUDA installer found for version ${version} on ${os2} with architecture ${arch2}`
+      `No matching CUDA installer found for version ${version} on ${os3} with architecture ${arch2}`
     );
   }
   return getDownloadUrl(version, "local_installers", targetFilename);
@@ -23080,11 +23080,25 @@ async function findCudaRepoAndPackageLinux(cudaVersion, arch2, osInfo) {
 var core2 = __toESM(require_core());
 var exec = __toESM(require_exec());
 var fs2 = __toESM(require("fs"));
+var os2 = __toESM(require("os"));
 var path = __toESM(require("path"));
 var tc = __toESM(require_tool_cache());
 var io = __toESM(require_io());
 function getSudoPrefix() {
   return hasRootPrivileges() ? "" : "sudo";
+}
+function getWindowsInstallerDownloadPath(filename) {
+  const tempDir = process.env["RUNNER_TEMP"] || os2.tmpdir();
+  return path.win32.join(tempDir, filename);
+}
+function normalizeInstallerPath(installerPath, osType) {
+  if (osType === "windows" /* WINDOWS */) {
+    return path.win32.normalize(installerPath);
+  }
+  return path.resolve(installerPath);
+}
+function getWindowsInstallerCommand(installerPath) {
+  return `"${installerPath}"`;
 }
 async function installCudaLinuxLocal(installerPath) {
   core2.info("Installing CUDA on Linux...");
@@ -23101,28 +23115,30 @@ async function installCudaLinuxLocal(installerPath) {
 async function installCudaWindowsLocal(installerPath, version) {
   core2.info("Installing CUDA on Windows...");
   const installArgs = ["-s"];
-  core2.info(`Executing: ${installerPath} ${installArgs.join(" ")}`);
-  await exec.exec(installerPath, installArgs);
+  const command = getWindowsInstallerCommand(installerPath);
+  core2.info(`Executing: ${command} ${installArgs.join(" ")}`);
+  await exec.exec(command, installArgs);
   const majorMinor = version.split(".").slice(0, 2).join(".");
   const cudaPath = `C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v${majorMinor}`;
   if (!fs2.existsSync(cudaPath)) {
     throw new Error(`CUDA installation failed. Path not found: ${cudaPath}`);
   }
 }
-async function installCudaLocal(version, os2, arch2) {
-  const cudaInstallerUrl = await getCudaLocalInstallerUrl(version, os2, arch2);
+async function installCudaLocal(version, os3, arch2) {
+  const cudaInstallerUrl = await getCudaLocalInstallerUrl(version, os3, arch2);
   debugLog(`CUDA installer URL: ${cudaInstallerUrl}`);
   core2.info("Downloading CUDA installer...");
   let filename = path.basename(cudaInstallerUrl);
-  if (os2 === "linux" /* LINUX */) {
+  if (os3 === "linux" /* LINUX */) {
     filename = `cuda_${version}_linux.run`;
-  } else if (os2 === "windows" /* WINDOWS */) {
+  } else if (os3 === "windows" /* WINDOWS */) {
     filename = `cuda_${version}_windows.exe`;
   }
-  let installerPath = await tc.downloadTool(cudaInstallerUrl, filename);
-  installerPath = path.resolve(installerPath);
+  const downloadDestination = os3 === "windows" /* WINDOWS */ ? getWindowsInstallerDownloadPath(filename) : filename;
+  let installerPath = await tc.downloadTool(cudaInstallerUrl, downloadDestination);
+  installerPath = normalizeInstallerPath(installerPath, os3);
   core2.info(`CUDA installer downloaded to: ${installerPath}`);
-  if (os2 === "linux" /* LINUX */) {
+  if (os3 === "linux" /* LINUX */) {
     try {
       await installCudaLinuxLocal(installerPath);
     } catch (error) {
@@ -23132,13 +23148,13 @@ async function installCudaLocal(version, os2, arch2) {
       }
       throw error;
     }
-  } else if (os2 === "windows" /* WINDOWS */) {
+  } else if (os3 === "windows" /* WINDOWS */) {
     await installCudaWindowsLocal(installerPath, version);
   }
   core2.info("Cleaning up installer...");
   await io.rmRF(installerPath);
   let cudaPath;
-  if (os2 === "linux" /* LINUX */) {
+  if (os3 === "linux" /* LINUX */) {
     cudaPath = "/usr/local/cuda";
   } else {
     const majorMinor = version.split(".").slice(0, 2).join(".");
@@ -23200,18 +23216,22 @@ async function installCudaWindowsNetwork(version) {
   const filename = `cuda_${version}_windows_network.exe`;
   let installerPath;
   try {
-    installerPath = await tc.downloadTool(networkInstallerUrl, filename);
+    installerPath = await tc.downloadTool(
+      networkInstallerUrl,
+      getWindowsInstallerDownloadPath(filename)
+    );
   } catch (error) {
     throw new Error(
       `Failed to download CUDA network installer from ${networkInstallerUrl}: ${error} for version ${version}`
     );
   }
-  installerPath = path.resolve(installerPath);
+  installerPath = normalizeInstallerPath(installerPath, "windows" /* WINDOWS */);
   const installArgs = ["-s"];
+  const command = getWindowsInstallerCommand(installerPath);
   core2.info(`Installing CUDA on Windows (Network)...`);
-  core2.info(`Executing: ${installerPath} ${installArgs.join(" ")}`);
+  core2.info(`Executing: ${command} ${installArgs.join(" ")}`);
   try {
-    await exec.exec(installerPath, installArgs);
+    await exec.exec(command, installArgs);
   } catch (error) {
     throw new Error(`Failed to execute CUDA installer: ${error}`);
   }
@@ -23223,18 +23243,18 @@ async function installCudaWindowsNetwork(version) {
   }
   return cudaPath;
 }
-async function installCudaNetwork(version, os2, arch2, osInfo) {
-  if (os2 === "linux" /* LINUX */) {
+async function installCudaNetwork(version, os3, arch2, osInfo) {
+  if (os3 === "linux" /* LINUX */) {
     return await installCudaLinuxNetwork(version, arch2, osInfo);
-  } else if (os2 === "windows" /* WINDOWS */) {
+  } else if (os3 === "windows" /* WINDOWS */) {
     return await installCudaWindowsNetwork(version);
   }
   return void 0;
 }
 
 // src/index.ts
-function setEnvironmentVariables(os2, cudaPath) {
-  if (os2 === "linux" /* LINUX */) {
+function setEnvironmentVariables(os3, cudaPath) {
+  if (os3 === "linux" /* LINUX */) {
     core3.addPath(path2.join(cudaPath, "bin"));
     core3.exportVariable("CUDA_PATH", cudaPath);
     core3.exportVariable("CUDA_HOME", cudaPath);
@@ -23242,7 +23262,7 @@ function setEnvironmentVariables(os2, cudaPath) {
       "LD_LIBRARY_PATH",
       `${path2.join(cudaPath, "lib64")}:${process.env.LD_LIBRARY_PATH || ""}`
     );
-  } else if (os2 === "windows" /* WINDOWS */) {
+  } else if (os3 === "windows" /* WINDOWS */) {
     core3.addPath(path2.join(cudaPath, "bin"));
     core3.addPath(path2.join(cudaPath, "lib", "x64"));
     core3.exportVariable("CUDA_PATH", cudaPath);
