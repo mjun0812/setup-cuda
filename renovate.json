@@ -1,6 +1,20 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended"
+  "extends": ["config:recommended"],
+  "labels": ["dependencies"],
+  "commitMessagePrefix": "chore(deps):",
+  "packageRules": [
+    {
+      "matchManagers": ["npm"],
+      "groupName": "npm dependencies"
+    },
+    {
+      "matchManagers": ["nodenv"],
+      "groupName": "nodenv dependencies"
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions dependencies"
+    }
   ]
 }
