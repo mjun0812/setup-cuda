@@ -3,14 +3,14 @@
 ## Prerequisites
 
 - Node.js >= 24.0.0
-- pnpm (version specified in package.json: 10.18.3)
+- Vite+ (`vp`) installed globally
 
 ## Setup
 
 Install dependencies:
 
 ```bash
-pnpm install
+vp install
 ```
 
 ## Development Workflow
@@ -36,22 +36,25 @@ After making code changes, run the following commands locally:
 
 ```bash
 # Format code
-pnpm run format
+vp fmt src test
 
-# Lint
-pnpm run lint:fix
+# Lint and apply autofixes
+vp lint src test --fix
 
 # Type check
-pnpm run typecheck
+tsc --noEmit
+
+# Run format, lint, and type-aware checks together
+vp check
 
 # Run tests
-pnpm run test
+vp test run
 
 # Build
-pnpm run build
+vp pack
 
-# Or run all at once
-pnpm run all
+# Or run the full local verification flow
+vp check && tsc --noEmit && vp test run && vp pack
 ```
 
 **Important**: Always commit the `dist/` directory after building. The built files must be committed because GitHub Actions runs the action from the repository directly.
@@ -94,10 +97,8 @@ Runs on:
 Jobs:
 
 1. **Format-Lint-TypeCheck**
-   - Checks code formatting with Prettier
-   - Lints code with ESLint
-   - Type checks with TypeScript
-   - Runs unit tests with Vitest
+   - Runs `vp check` for formatting, lint, and type-aware checks
+   - Runs unit tests with `vp test run`
 
 2. **Test**
    - Tests the action on multiple platforms:
@@ -141,7 +142,7 @@ Tests on container environments:
 Before creating a release, make sure the `dist/` directory is built and committed:
 
 ```bash
-pnpm run build
+vp pack
 git add dist/
 git commit -m "build: update dist for release"
 git push
@@ -161,7 +162,7 @@ git push origin v1.2.3
 When a tag matching `v[0-9]+.[0-9]+.[0-9]+` is pushed, the release workflow (`.github/workflows/release.yml`) automatically:
 
 1. Checks out the code
-2. Installs dependencies
+2. Sets up `vp` and installs dependencies
 3. Builds the project
 4. Verifies that `dist/` is up-to-date (fails if uncommitted changes exist)
 5. Creates a GitHub release with auto-generated release notes
@@ -178,13 +179,13 @@ Example:
 
 ```bash
 # Run tests once
-pnpm run test
+vp test run
 
 # Run tests in watch mode
-pnpm run test:watch
+vp test
 
 # Run tests with coverage
-pnpm run test:coverage
+vp test run --coverage
 ```
 
 ### Integration Test

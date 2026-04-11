@@ -17362,6 +17362,15 @@ function debugLog(message) {
 	debug(message);
 }
 /**
+* Convert an unknown thrown value into a readable error message.
+* @param error - Value thrown by a catch clause
+* @returns Error message string
+*/
+function getErrorMessage(error) {
+	if (error instanceof Error) return error.message;
+	return String(error);
+}
+/**
 * Check if the current process has root/administrator privileges
 * @returns true if running with root/admin privileges, false otherwise
 */
@@ -17593,7 +17602,7 @@ async function getCudaLocalInstallerUrl(version, os, arch) {
 		let pattern;
 		if (arch === Arch.X86_64) pattern = new RegExp(`cuda_${version.replace(/\./g, "\\.")}_\\d+\\.\\d+(\\.\\d+)?_linux\\.run`);
 		else if (arch === Arch.ARM64_SBSA) pattern = new RegExp(`cuda_${version.replace(/\./g, "\\.")}_\\d+\\.\\d+(\\.\\d+)?_linux_sbsa\\.run`);
-		else throw new Error(`Unsupported architecture: ${arch}`);
+		else throw new Error(`Unsupported architecture: ${String(arch)}`);
 		for (const [filename] of Object.entries(md5sums)) if (filename.match(pattern)) {
 			targetFilename = filename;
 			break;
@@ -17698,7 +17707,7 @@ function buildCudaRepoUrl(targetOsName, arch) {
 	let cudaRepoUrl = `https://developer.download.nvidia.com/compute/cuda/repos/${targetOsName}`;
 	if (arch === Arch.X86_64) cudaRepoUrl += "/x86_64/";
 	else if (arch === Arch.ARM64_SBSA) cudaRepoUrl += "/sbsa/";
-	else throw new Error(`Unsupported architecture: ${arch}`);
+	else throw new Error(`Unsupported architecture: ${String(arch)}`);
 	return cudaRepoUrl;
 }
 /**
@@ -19411,7 +19420,7 @@ async function installCudaLinuxNetwork(version, arch, osInfo) {
 			try {
 				repoFilePath = await downloadTool(repoUrl);
 			} catch (error) {
-				throw new Error(`Failed to download CUDA repository file from ${repoUrl}: ${error}`);
+				throw new Error(`Failed to download CUDA repository file from ${repoUrl}: ${getErrorMessage(error)}`);
 			}
 			repoFilePath = path.resolve(repoFilePath);
 			if (repoUrl.endsWith(".deb")) {
@@ -19432,7 +19441,7 @@ async function installCudaLinuxNetwork(version, arch, osInfo) {
 			cudaPath = "/usr/local/cuda";
 		}
 	} catch (error) {
-		throw new Error(`Failed to install CUDA via network: ${error}`);
+		throw new Error(`Failed to install CUDA via network: ${getErrorMessage(error)}`);
 	}
 	return cudaPath;
 }
@@ -19451,7 +19460,7 @@ async function installCudaWindowsNetwork(version) {
 	try {
 		installerPath = await downloadTool(networkInstallerUrl, getWindowsInstallerDownloadPath(filename));
 	} catch (error) {
-		throw new Error(`Failed to download CUDA network installer from ${networkInstallerUrl}: ${error} for version ${version}`);
+		throw new Error(`Failed to download CUDA network installer from ${networkInstallerUrl}: ${getErrorMessage(error)} for version ${version}`);
 	}
 	installerPath = normalizeInstallerPath(installerPath, OS.WINDOWS);
 	const installArgs = ["-s"];
@@ -19461,7 +19470,7 @@ async function installCudaWindowsNetwork(version) {
 	try {
 		await exec(command, installArgs);
 	} catch (error) {
-		throw new Error(`Failed to execute CUDA installer: ${error}`);
+		throw new Error(`Failed to execute CUDA installer: ${getErrorMessage(error)}`);
 	}
 	await rmRF(installerPath);
 	const cudaPath = `C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v${version.split(".").slice(0, 2).join(".")}`;
@@ -19524,7 +19533,7 @@ async function run() {
 		} else if (inputMethod === "auto") try {
 			cudaPath = await installCudaNetwork(targetCudaVersion, osType, arch, osType === OS.LINUX ? linuxDistribution : windowsVersion);
 		} catch (error) {
-			info(`CUDA network installation failed for version ${targetCudaVersion}: ${error}`);
+			info(`CUDA network installation failed for version ${targetCudaVersion}: ${getErrorMessage(error)}`);
 			info("Falling back to local installation");
 			cudaPath = await installCudaLocal(targetCudaVersion, osType, arch);
 		}

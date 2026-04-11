@@ -311,7 +311,7 @@ export async function getCudaLocalInstallerUrl(
         `cuda_${version.replace(/\./g, '\\.')}_\\d+\\.\\d+(\\.\\d+)?_linux_sbsa\\.run`
       );
     } else {
-      throw new Error(`Unsupported architecture: ${arch}`);
+      throw new Error(`Unsupported architecture: ${String(arch)}`);
     }
 
     for (const [filename] of Object.entries(md5sums)) {
@@ -491,7 +491,7 @@ function buildCudaRepoUrl(targetOsName: string, arch: Arch): string {
   } else if (arch === Arch.ARM64_SBSA) {
     cudaRepoUrl += '/sbsa/';
   } else {
-    throw new Error(`Unsupported architecture: ${arch}`);
+    throw new Error(`Unsupported architecture: ${String(arch)}`);
   }
 
   return cudaRepoUrl;

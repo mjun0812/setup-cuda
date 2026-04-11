@@ -5,15 +5,17 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "vp pack",
-    "format": "vp fmt 'src/**/*.ts'",
-    "format:check": "vp fmt --check 'src/**/*.ts'",
-    "lint": "vp lint src/**/*.ts",
-    "lint:fix": "vp lint src/**/*.ts --fix",
+    "format": "vp fmt src test",
+    "format:check": "vp fmt --check src test",
+    "lint": "vp lint src test",
+    "lint:fix": "vp lint src test --fix",
     "typecheck": "tsc --noEmit",
+    "check": "vp check",
+    "check:fix": "vp check --fix",
     "test": "vp test run",
     "test:watch": "vp test",
     "test:coverage": "vp test run --coverage",
-    "all": "pnpm format && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "all": "vp check && tsc --noEmit && vp test run && vp pack",
     "prepare": "vp config"
   },
   "keywords": [

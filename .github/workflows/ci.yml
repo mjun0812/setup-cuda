@@ -21,6 +21,7 @@ jobs:
         uses: voidzero-dev/setup-vp@v1
         with:
           cache: true
+          node-version-file: .node-version
 
       - name: Check Format, Lint and TypeCheck
         run: vp check

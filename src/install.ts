@@ -12,7 +12,7 @@ import {
   isFedoraBased,
   getPackageManagerCommand,
 } from './os_arch';
-import { debugLog, hasRootPrivileges } from './utils';
+import { debugLog, getErrorMessage, hasRootPrivileges } from './utils';
 import {
   getCudaLocalInstallerUrl,
   findCudaRepoAndPackageLinux,
@@ -194,7 +194,9 @@ async function installCudaLinuxNetwork(
       try {
         repoFilePath = await tc.downloadTool(repoUrl);
       } catch (error) {
-        throw new Error(`Failed to download CUDA repository file from ${repoUrl}: ${error}`);
+        throw new Error(
+          `Failed to download CUDA repository file from ${repoUrl}: ${getErrorMessage(error)}`
+        );
       }
       repoFilePath = path.resolve(repoFilePath);
 
@@ -222,7 +224,7 @@ async function installCudaLinuxNetwork(
       cudaPath = '/usr/local/cuda';
     }
   } catch (error) {
-    throw new Error(`Failed to install CUDA via network: ${error}`);
+    throw new Error(`Failed to install CUDA via network: ${getErrorMessage(error)}`);
   }
   return cudaPath;
 }
@@ -249,7 +251,7 @@ async function installCudaWindowsNetwork(version: string): Promise<string | unde
     );
   } catch (error) {
     throw new Error(
-      `Failed to download CUDA network installer from ${networkInstallerUrl}: ${error} for version ${version}`
+      `Failed to download CUDA network installer from ${networkInstallerUrl}: ${getErrorMessage(error)} for version ${version}`
     );
   }
   installerPath = normalizeInstallerPath(installerPath, OS.WINDOWS);
@@ -266,7 +268,7 @@ async function installCudaWindowsNetwork(version: string): Promise<string | unde
   try {
     await exec.exec(command, installArgs);
   } catch (error) {
-    throw new Error(`Failed to execute CUDA installer: ${error}`);
+    throw new Error(`Failed to execute CUDA installer: ${getErrorMessage(error)}`);
   }
 
   // Clean up installer
