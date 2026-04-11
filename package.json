@@ -4,16 +4,19 @@
   "description": "Set up a specific version of NVIDIA CUDA in GitHub Actions",
   "main": "dist/index.js",
   "scripts": {
-    "build": "esbuild src/index.ts --bundle --platform=node --target=node24 --outfile=dist/index.js --sourcemap",
-    "format": "prettier --write 'src/**/*.ts'",
-    "format:check": "prettier --check 'src/**/*.ts'",
-    "lint": "eslint src/**/*.ts",
-    "lint:fix": "eslint src/**/*.ts --fix",
+    "build": "vp pack",
+    "format": "vp fmt src test",
+    "format:check": "vp fmt --check src test",
+    "lint": "vp lint src test",
+    "lint:fix": "vp lint src test --fix",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "all": "pnpm format && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+    "check": "vp check",
+    "check:fix": "vp check --fix",
+    "test": "vp test run",
+    "test:watch": "vp test",
+    "test:coverage": "vp test run --coverage",
+    "all": "vp check && tsc --noEmit && vp test run && vp pack",
+    "prepare": "vp config"
   },
   "keywords": [
     "actions",
@@ -35,12 +38,8 @@
   },
   "devDependencies": {
     "@types/node": "^24.10.0",
-    "@typescript-eslint/eslint-plugin": "^8.46.2",
-    "@typescript-eslint/parser": "^8.46.2",
-    "esbuild": "^0.28.0",
-    "eslint": "^10.0.0",
-    "prettier": "^3.6.2",
     "typescript": "^6.0.0",
-    "vitest": "^4.0.8"
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
   }
 }

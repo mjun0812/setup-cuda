@@ -12,6 +12,7 @@ import {
 } from './os_arch';
 import { findCudaVersion } from './cuda';
 import { installCudaLocal, installCudaNetwork } from './install';
+import { getErrorMessage } from './utils';
 
 function setEnvironmentVariables(os: OS, cudaPath: string): void {
   if (os === OS.LINUX) {
@@ -101,7 +102,9 @@ async function run(): Promise<void> {
           osType === OS.LINUX ? linuxDistribution! : windowsVersion!
         );
       } catch (error) {
-        core.info(`CUDA network installation failed for version ${targetCudaVersion}: ${error}`);
+        core.info(
+          `CUDA network installation failed for version ${targetCudaVersion}: ${getErrorMessage(error)}`
+        );
         core.info('Falling back to local installation');
         cudaPath = await installCudaLocal(targetCudaVersion, osType, arch);
       }
@@ -126,4 +129,4 @@ async function run(): Promise<void> {
   }
 }
 
-run();
+void run();

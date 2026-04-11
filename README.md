@@ -75,7 +75,7 @@ steps:
     uses: mjun0812/setup-cuda@v1
     with:
       version: '13.0'
-      method: 'network'  # or 'local', 'auto'
+      method: 'network' # or 'local', 'auto'
 ```
 
 ### Install CUDA on Fedora-based distribution

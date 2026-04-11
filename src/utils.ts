@@ -41,6 +41,18 @@ export function debugLog(message: string): void {
 }
 
 /**
+ * Convert an unknown thrown value into a readable error message.
+ * @param error - Value thrown by a catch clause
+ * @returns Error message string
+ */
+export function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+}
+
+/**
  * Check if the current process has root/administrator privileges
  * @returns true if running with root/admin privileges, false otherwise
  */

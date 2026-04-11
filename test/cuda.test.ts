@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vite-plus/test';
 import {
   fetchAvailableCudaVersions,
   fetchRedistribVersions,
@@ -11,6 +11,7 @@ import {
   findCudaRepoAndPackageLinux,
 } from '../src/cuda';
 import { Arch, type LinuxDistribution } from '../src/os_arch';
+import { getErrorMessage } from '../src/utils';
 
 describe('CUDA Version Normalization', () => {
   const testCases = [
@@ -158,7 +159,7 @@ describe('MD5 Checksum Availability', () => {
         expect(typeof md5).toBe('string');
         expect(md5).toMatch(/^[a-f0-9]{32}$/i); // MD5 hash format
         results.push({ version, hasMd5: true });
-      } catch (error) {
+      } catch {
         results.push({ version, hasMd5: false });
       }
     }
@@ -253,7 +254,7 @@ describe('CUDA Repo and Package Name for Linux', () => {
           }
         } catch (error) {
           console.error(
-            `Error finding CUDA repo and package for ${os} CUDA ${cudaVersion} (x86_64): ${error}`
+            `Error finding CUDA repo and package for ${os} CUDA ${cudaVersion} (x86_64): ${getErrorMessage(error)}`
           );
         }
       });
