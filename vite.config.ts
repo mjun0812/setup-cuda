@@ -74,6 +74,6 @@ export default defineConfig({
     arrowParens: 'always',
     endOfLine: 'lf',
     sortPackageJson: false,
-    ignorePatterns: [],
+    ignorePatterns: ['dist/**'],
   },
 });
