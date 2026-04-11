@@ -389,7 +389,7 @@ async function fetchCudaRepoItems(
 export async function fetchCudaRepoOS(): Promise<string[]> {
   const url = 'https://developer.download.nvidia.com/compute/cuda/repos/';
   // Extract OS directory names (e.g., ubuntu2204/, rhel9/, etc.)
-  const dirPattern = />([a-zA-Z0-9_\-]+)\//g;
+  const dirPattern = />([a-zA-Z0-9_-]+)\//g;
   // Filter out common non-OS directories like "Parent Directory"
   const filterFn = (dirName: string) => dirName !== '..';
 

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { Arch, OS, type WindowsVersion } from '../src/os_arch';
 
 const mocks = vi.hoisted(() => ({
@@ -64,9 +64,7 @@ describe('Windows CUDA installer execution', () => {
     mocks.rmRF.mockResolvedValue(undefined);
     mocks.hasRootPrivileges.mockReturnValue(true);
     mocks.getCudaLocalInstallerUrl.mockResolvedValue('https://example.com/cuda-local.exe');
-    mocks.findCudaNetworkInstallerWindows.mockResolvedValue(
-      'https://example.com/cuda-network.exe'
-    );
+    mocks.findCudaNetworkInstallerWindows.mockResolvedValue('https://example.com/cuda-network.exe');
   });
 
   it('downloads the local installer into RUNNER_TEMP and executes it with quotes', async () => {

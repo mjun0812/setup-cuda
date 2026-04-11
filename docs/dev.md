@@ -24,6 +24,7 @@ git checkout -b <your-branch-name>
 ```
 
 Branch naming convention (recommended):
+
 - `feat/<feature-name>` - for new features
 - `fix/<bug-name>` - for bug fixes
 - `docs/<doc-name>` - for documentation
@@ -65,6 +66,7 @@ git commit -m "feat: add new feature"
 ```
 
 Commit message format:
+
 - `feat:` - new feature
 - `fix:` - bug fix
 - `docs:` - documentation changes
@@ -85,10 +87,12 @@ Then create a PR on GitHub targeting the `main` branch.
 ### CI Workflow (`.github/workflows/ci.yml`)
 
 Runs on:
+
 - Pull requests to `main`
 - Pushes to `main`
 
 Jobs:
+
 1. **Format-Lint-TypeCheck**
    - Checks code formatting with Prettier
    - Lints code with ESLint
@@ -108,10 +112,12 @@ Jobs:
 ### Full Test Workflow (`.github/workflows/full-test.yml`)
 
 Runs on:
+
 - Manual trigger (workflow_dispatch)
 - Weekly schedule (Sunday at 3 AM UTC)
 
 Comprehensive testing matrix:
+
 - OS: windows-latest, windows-2025, windows-2022, ubuntu-latest, ubuntu-24.04, ubuntu-22.04, ubuntu-24.04-arm, ubuntu-22.04-arm
 - CUDA versions: 10.0, 11.0, 12.0, 13.0, latest
 - Methods: local, auto
@@ -119,9 +125,11 @@ Comprehensive testing matrix:
 ### Container Test Workflow (`.github/workflows/container-test.yml`)
 
 Runs on:
+
 - Manual trigger (workflow_dispatch)
 
 Tests on container environments:
+
 - almalinux:9
 - fedora:latest
 - quay.io/pypa/manylinux_2_28_x86_64
@@ -160,6 +168,7 @@ When a tag matching `v[0-9]+.[0-9]+.[0-9]+` is pushed, the release workflow (`.g
 6. Updates the major version tag (e.g., `v1`) to point to the new release
 
 Example:
+
 - Push `v1.2.3` → Creates release and updates `v1` tag to point to `v1.2.3`
 - This allows users to reference `mjun0812/setup-cuda@v1` to always get the latest v1.x.x
 

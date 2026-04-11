@@ -17,29 +17,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v5
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1
         with:
-          node-version-file: .node-version
-          cache: pnpm
+          cache: true
 
-      - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Check Format
-        run: pnpm run format:check
-
-      - name: Lint
-        run: pnpm run lint
-
-      - name: Type Check
-        run: pnpm run typecheck
+      - name: Check Format, Lint and TypeCheck
+        run: vp check
 
       - name: Run Unit Tests
-        run: pnpm run test
+        run: vp test run
 
   Test:
     name: Small Test

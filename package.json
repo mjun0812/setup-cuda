@@ -5,15 +5,16 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "esbuild src/index.ts --bundle --platform=node --target=node24 --outfile=dist/index.js --sourcemap",
-    "format": "prettier --write 'src/**/*.ts'",
-    "format:check": "prettier --check 'src/**/*.ts'",
-    "lint": "eslint src/**/*.ts",
-    "lint:fix": "eslint src/**/*.ts --fix",
+    "format": "vp fmt 'src/**/*.ts'",
+    "format:check": "vp fmt --check 'src/**/*.ts'",
+    "lint": "vp lint src/**/*.ts",
+    "lint:fix": "vp lint src/**/*.ts --fix",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "all": "pnpm format && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+    "test": "vp test run",
+    "test:watch": "vp test",
+    "test:coverage": "vp test run --coverage",
+    "all": "pnpm format && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "prepare": "vp config"
   },
   "keywords": [
     "actions",
@@ -38,9 +39,8 @@
     "@typescript-eslint/eslint-plugin": "^8.46.2",
     "@typescript-eslint/parser": "^8.46.2",
     "esbuild": "^0.28.0",
-    "eslint": "^10.0.0",
-    "prettier": "^3.6.2",
     "typescript": "^6.0.0",
-    "vitest": "^4.0.8"
+    "vitest": "catalog:",
+    "vite-plus": "catalog:"
   }
 }
