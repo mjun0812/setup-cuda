@@ -27,12 +27,12 @@ jobs:
           cache: true
 
       - name: Build
-        run: vp run build
+        run: vp pack
 
       - name: Check for uncommitted changes
         run: |
           if [ -n "$(git status --porcelain dist)" ]; then
-            echo "::error::dist folder is not up to date. Please run 'vp run build' locally and commit again."
+            echo "::error::dist folder is not up to date. Please run 'vp pack' locally and commit again."
             exit 1
           fi
 

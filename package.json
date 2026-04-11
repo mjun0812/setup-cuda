@@ -4,7 +4,7 @@
   "description": "Set up a specific version of NVIDIA CUDA in GitHub Actions",
   "main": "dist/index.js",
   "scripts": {
-    "build": "esbuild src/index.ts --bundle --platform=node --target=node24 --outfile=dist/index.js --sourcemap",
+    "build": "vp pack",
     "format": "vp fmt 'src/**/*.ts'",
     "format:check": "vp fmt --check 'src/**/*.ts'",
     "lint": "vp lint src/**/*.ts",
@@ -36,11 +36,8 @@
   },
   "devDependencies": {
     "@types/node": "^24.10.0",
-    "@typescript-eslint/eslint-plugin": "^8.46.2",
-    "@typescript-eslint/parser": "^8.46.2",
-    "esbuild": "^0.28.0",
     "typescript": "^6.0.0",
-    "vitest": "catalog:",
-    "vite-plus": "catalog:"
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
   }
 }

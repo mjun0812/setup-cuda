@@ -1,6 +1,17 @@
 import { defineConfig } from 'vite-plus';
 
 export default defineConfig({
+  pack: {
+    entry: ['src/index.ts'],
+    format: 'cjs',
+    platform: 'node',
+    target: 'node24',
+    fixedExtension: false,
+    sourcemap: true,
+    deps: {
+      alwaysBundle: [/./],
+    },
+  },
   test: {
     environment: 'node',
     testTimeout: 30000,
