@@ -25,7 +25,7 @@
   ],
   "author": "mjun0812",
   "license": "MIT",
-  "packageManager": "pnpm@10.33.0",
+  "packageManager": "pnpm@10.33.4",
   "engines": {
     "node": ">=24.0.0"
   },
