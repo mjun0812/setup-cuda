@@ -194,11 +194,14 @@ export async function fetchAvailableCudaVersions(): Promise<string[]> {
   const archiveVersions = results[1].status === 'fulfilled' ? results[1].value : [];
   const opensourceVersions = results[2].status === 'fulfilled' ? results[2].value : [];
 
+  // The archive page can list a release (e.g. a developer preview) before its
+  // installers are published, so only use it as a fallback when both
+  // artifact-backed sources (redistrib and opensource) are unavailable
+  const artifactBackedVersions = [...redistribVersions, ...opensourceVersions];
+
   // Combine and deduplicate versions
   const allVersions = new Set([
-    ...redistribVersions,
-    ...archiveVersions,
-    ...opensourceVersions,
+    ...(artifactBackedVersions.length > 0 ? artifactBackedVersions : archiveVersions),
     ...OLD_CUDA_VERSIONS,
   ]);
 
