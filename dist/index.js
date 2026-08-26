@@ -17864,12 +17864,8 @@ async function fetchAvailableCudaVersions() {
 	const redistribVersions = results[0].status === "fulfilled" ? results[0].value : [];
 	const archiveVersions = results[1].status === "fulfilled" ? results[1].value : [];
 	const opensourceVersions = results[2].status === "fulfilled" ? results[2].value : [];
-	let versions = sortVersions([.../* @__PURE__ */ new Set([
-		...redistribVersions,
-		...archiveVersions,
-		...opensourceVersions,
-		...OLD_CUDA_VERSIONS
-	])]);
+	const artifactBackedVersions = [...redistribVersions, ...opensourceVersions];
+	let versions = sortVersions([.../* @__PURE__ */ new Set([...artifactBackedVersions.length > 0 ? artifactBackedVersions : archiveVersions, ...OLD_CUDA_VERSIONS])]);
 	versions = versions.filter((version) => compareVersions(version, START_SUPPORTED_CUDA_VERSION) >= 0);
 	return versions;
 }

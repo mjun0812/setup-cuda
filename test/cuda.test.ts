@@ -40,6 +40,15 @@ describe('CUDA Version Finding', () => {
     expect(result).toMatch(/^\d+\.\d+(\.\d+)?$/);
   });
 
+  it('should resolve latest to a version with published installers', async () => {
+    // The archive page can list a release (e.g. a developer preview) before
+    // its installers are published; such versions must not be selected
+    const result = await findCudaVersion('latest');
+    expect(result).toBeDefined();
+    const md5sums = await fetchMd5sum(result!);
+    expect(Object.keys(md5sums).length).toBeGreaterThan(0);
+  });
+
   it('should find major version 10', async () => {
     const result = await findCudaVersion('10');
     expect(result).toBeDefined();
