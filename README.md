@@ -1,10 +1,10 @@
 # setup-cuda
 
-[![GitHub release (latest by date)](https://img.shields.io/github/v/release/mjun0812/setup-cuda)](https://github.com/mjun0812/setup-cuda/releases)
-[![GitHub](https://img.shields.io/github/license/mjun0812/setup-cuda)](https://github.com/mjun0812/setup-cuda)
-[![GitHub Marketplace](https://img.shields.io/badge/Marketplace-Setup%20CUDA-blue.svg)](https://github.com/marketplace/actions/mjun0812-setup-cuda)  
-[![github-sponsor](https://img.shields.io/badge/sponsor-30363D?style=for-the-badge&logo=GitHub-Sponsors&logoColor=#white)](https://github.com/sponsors/mjun0812)
-[![buy-me-a-coffee](https://img.shields.io/badge/Buy_Me_A_Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/mjun0812)
+[![Release](https://shieldcn.dev/github/mjun0812/setup-cuda/release.svg)](https://github.com/mjun0812/setup-cuda/releases)
+[![License](https://shieldcn.dev/github/mjun0812/setup-cuda/license.svg)](https://github.com/mjun0812/setup-cuda)
+[![Marketplace](https://shieldcn.dev/badge/Marketplace-Setup_CUDA-blue.svg)](https://github.com/marketplace/actions/mjun0812-setup-cuda)  
+[![GitHub Sponsors](https://shieldcn.dev/badge/Sponsor-mjun0812-pink.svg?logo=githubsponsors)](https://github.com/sponsors/mjun0812)
+[![Buy Me A Coffee](https://shieldcn.dev/badge/Buy_Me_A_Coffee-mjun0812-yellow.svg?logo=buymeacoffee)](https://buymeacoffee.com/mjun0812)
 
 Set up a specific version of NVIDIA CUDA in GitHub Actions.
 
