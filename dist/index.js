@@ -17889,6 +17889,51 @@ async function findCudaVersion(inputVersion) {
 	if (matchingVersions.length > 0) return matchingVersions[matchingVersions.length - 1];
 }
 /**
+* Get the installer filename patterns for a given version, OS, and architecture in priority order
+* Linux X86_64: cuda_<version>[_<bundle driver version>]_linux.run
+* Linux ARM64_SBSA: cuda_<version>[_<bundle driver version>]_linux_sbsa.run
+* Windows: cuda_<version>_windows_<x86_64|arm64>[_network].exe (CUDA 13.4.1 and later)
+* Windows X86_64 (older): cuda_<version>[_<bundle driver version>]_<windows|win10>[_network].exe
+* @param version - CUDA version string (e.g., "12.3.0")
+* @param os - Operating system (e.g., OS.LINUX, OS.WINDOWS)
+* @param arch - Architecture (e.g., Arch.X86_64, Arch.ARM64_SBSA)
+* @param type - Installer type ('local' or 'network')
+* @returns Patterns matching the whole installer filename
+* @throws Error if the combination of OS, architecture, and installer type is not supported
+*/
+function getCudaInstallerPatterns(version, os, arch, type) {
+	const prefix = `^cuda_${version.replace(/\./g, "\\.")}`;
+	const driver = type === "local" ? "(_\\d+\\.\\d+(\\.\\d+)?)?" : "";
+	const suffix = type === "network" ? "_network\\.exe$" : "\\.exe$";
+	if (os === "linux" && type === "local") {
+		if (arch === "x86_64") return [new RegExp(`${prefix}${driver}_linux\\.run$`)];
+		else if (arch === "arm64-sbsa") return [new RegExp(`${prefix}${driver}_linux_sbsa\\.run$`)];
+	} else if (os === "windows") {
+		if (arch === "x86_64") return [
+			new RegExp(`${prefix}_windows_x86_64${suffix}`),
+			new RegExp(`${prefix}${driver}_windows${suffix}`),
+			new RegExp(`${prefix}${driver}_win10${suffix}`)
+		];
+		else if (arch === "arm64-sbsa") return [new RegExp(`${prefix}_windows_arm64${suffix}`)];
+	}
+	throw new Error(`Unsupported CUDA ${type} installer for ${os} with architecture ${String(arch)}`);
+}
+/**
+* Find the CUDA installer filename for a given version, OS, and architecture
+* @param filenames - Filenames listed in the MD5 checksum file
+* @param version - CUDA version string (e.g., "12.3.0")
+* @param os - Operating system (e.g., OS.LINUX, OS.WINDOWS)
+* @param arch - Architecture (e.g., Arch.X86_64, Arch.ARM64_SBSA)
+* @param type - Installer type ('local' or 'network')
+* @returns The installer filename, or undefined if not found
+*/
+function findCudaInstallerFilename(filenames, version, os, arch, type) {
+	for (const pattern of getCudaInstallerPatterns(version, os, arch, type)) {
+		const filename = filenames.find((name) => pattern.test(name));
+		if (filename) return filename;
+	}
+}
+/**
 * Get the URL for the CUDA installer for a given version, OS, and architecture
 * @param version - CUDA version string (e.g., "12.3.0")
 * @param os - Operating system (e.g., OS.LINUX, OS.WINDOWS)
@@ -17908,25 +17953,7 @@ async function getCudaLocalInstallerUrl(version, os, arch) {
 	if (majorVersion <= 10 && os === "linux" && arch === "x86_64") return CUDA_LINKS[version].linuxX86Url;
 	else if (majorVersion <= 10 && os === "windows") return CUDA_LINKS[version].windowsLocalInstallerUrl;
 	const md5sums = await fetchMd5sum(version);
-	let targetFilename = void 0;
-	if (os === "linux") {
-		let pattern;
-		if (arch === "x86_64") pattern = new RegExp(`cuda_${version.replace(/\./g, "\\.")}_\\d+\\.\\d+(\\.\\d+)?_linux\\.run`);
-		else if (arch === "arm64-sbsa") pattern = new RegExp(`cuda_${version.replace(/\./g, "\\.")}_\\d+\\.\\d+(\\.\\d+)?_linux_sbsa\\.run`);
-		else throw new Error(`Unsupported architecture: ${String(arch)}`);
-		for (const [filename] of Object.entries(md5sums)) if (filename.match(pattern)) {
-			targetFilename = filename;
-			break;
-		}
-	} else if (os === "windows") {
-		let windowsFilename;
-		let win10Filename;
-		for (const [filename] of Object.entries(md5sums)) if (filename.endsWith("_windows.exe")) {
-			windowsFilename = filename;
-			break;
-		} else if (filename.endsWith("_win10.exe")) win10Filename = filename;
-		targetFilename = windowsFilename || win10Filename;
-	}
+	const targetFilename = findCudaInstallerFilename(Object.keys(md5sums), version, os, arch, "local");
 	if (!targetFilename) throw new Error(`No matching CUDA installer found for version ${version} on ${os} with architecture ${arch}`);
 	return getDownloadUrl(version, "local_installers", targetFilename);
 }
@@ -17974,20 +18001,17 @@ async function fetchCudaRepoFiles(url) {
 /**
 * Find the URL for the CUDA Windows network installer for a given version
 * @param version - CUDA version string (e.g., "12.3.0")
+* @param arch - Architecture (e.g., Arch.X86_64, Arch.ARM64_SBSA)
 * @returns The URL for the CUDA Windows network installer, or undefined if not found
 */
-async function findCudaNetworkInstallerWindows(version) {
+async function findCudaNetworkInstallerWindows(version, arch) {
 	if (version in CUDA_LINKS && CUDA_LINKS[version].windowsNetworkInstallerUrl) return CUDA_LINKS[version].windowsNetworkInstallerUrl;
-	let url = await getCudaLocalInstallerUrl(version, "windows", "x86_64");
-	url = url.replace(/local_installers\/cuda_([^_]+)_[^_]+_(.+)\.exe/, "network_installers/cuda_$1_$2_network.exe");
+	const md5sums = await fetchMd5sum(version);
+	const filename = findCudaInstallerFilename(Object.keys(md5sums), version, "windows", arch, "network");
+	if (!filename) return;
+	const url = getDownloadUrl(version, "network_installers", filename);
 	debugLog(`CUDA Windows network installer URL: ${url}`);
-	const client = new HttpClient("setup-cuda");
-	try {
-		if ((await client.head(url)).message.statusCode === 200) return url;
-	} catch {
-		console.error(`CUDA Windows network installer not found for version ${version}`);
-		return;
-	}
+	return url;
 }
 /**
 * Build the target OS name for CUDA repository
@@ -19824,8 +19848,8 @@ async function installCudaLinuxNetwork(version, arch, osInfo) {
 * @param osInfo - Windows version information
 * @returns The path to the CUDA installation, or undefined if network installer is not available
 */
-async function installCudaWindowsNetwork(version) {
-	const networkInstallerUrl = await findCudaNetworkInstallerWindows(version);
+async function installCudaWindowsNetwork(version, arch) {
+	const networkInstallerUrl = await findCudaNetworkInstallerWindows(version, arch);
 	if (!networkInstallerUrl) throw new Error(`CUDA network installer not found for version ${version}`);
 	const filename = `cuda_${version}_windows_network.exe`;
 	let installerPath;
@@ -19851,7 +19875,7 @@ async function installCudaWindowsNetwork(version) {
 }
 async function installCudaNetwork(version, os$4, arch, osInfo) {
 	if (os$4 === "linux") return await installCudaLinuxNetwork(version, arch, osInfo);
-	else if (os$4 === "windows") return await installCudaWindowsNetwork(version);
+	else if (os$4 === "windows") return await installCudaWindowsNetwork(version, arch);
 }
 //#endregion
 //#region src/index.ts

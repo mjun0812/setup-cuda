@@ -236,8 +236,8 @@ async function installCudaLinuxNetwork(
  * @param osInfo - Windows version information
  * @returns The path to the CUDA installation, or undefined if network installer is not available
  */
-async function installCudaWindowsNetwork(version: string): Promise<string | undefined> {
-  const networkInstallerUrl = await findCudaNetworkInstallerWindows(version);
+async function installCudaWindowsNetwork(version: string, arch: Arch): Promise<string | undefined> {
+  const networkInstallerUrl = await findCudaNetworkInstallerWindows(version, arch);
   if (!networkInstallerUrl) {
     throw new Error(`CUDA network installer not found for version ${version}`);
   }
@@ -294,7 +294,7 @@ export async function installCudaNetwork(
   if (os === OS.LINUX) {
     return await installCudaLinuxNetwork(version, arch, osInfo as LinuxDistribution);
   } else if (os === OS.WINDOWS) {
-    return await installCudaWindowsNetwork(version);
+    return await installCudaWindowsNetwork(version, arch);
   }
   return undefined;
 }
