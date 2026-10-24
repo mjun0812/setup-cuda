@@ -1,8 +1,11 @@
 import * as cache from '@actions/cache';
 import * as core from '@actions/core';
+import * as exec from '@actions/exec';
+import * as io from '@actions/io';
+import * as fs from 'fs';
 import * as path from 'path';
 import { OS, Arch, LinuxDistribution, WindowsVersion } from './os_arch';
-import { getErrorMessage } from './utils';
+import { getErrorMessage, hasRootPrivileges } from './utils';
 
 /**
  * Get the cache key for a downloaded installer file
@@ -26,21 +29,30 @@ export async function restoreInstaller(installerPath: string, key: string): Prom
 }
 
 /**
- * Save an installer file to the cache
- * @param installerPath - Path the installer was downloaded to
- * @param key - Cache key from getInstallerCacheKey
+ * Save paths to the cache without ever failing the action
+ * @param paths - Paths to save
+ * @param key - Cache key
  */
-export async function saveInstaller(installerPath: string, key: string): Promise<void> {
+async function save(paths: string[], key: string): Promise<void> {
   // saveCache throws before its own error handling when the paths match nothing or its
   // temporary directory cannot be created; a failed save must never fail the action.
   try {
-    const cacheId = await cache.saveCache([installerPath], key);
+    const cacheId = await cache.saveCache(paths, key);
     if (cacheId !== -1) {
       core.info(`Cache saved with key: ${key}`);
     }
   } catch (error) {
     core.warning(`Failed to save cache with key ${key}: ${getErrorMessage(error)}`);
   }
+}
+
+/**
+ * Save an installer file to the cache
+ * @param installerPath - Path the installer was downloaded to
+ * @param key - Cache key from getInstallerCacheKey
+ */
+export async function saveInstaller(installerPath: string, key: string): Promise<void> {
+  await save([installerPath], key);
 }
 
 /**
@@ -53,13 +65,18 @@ export async function saveInstaller(installerPath: string, key: string): Promise
  * @returns The cache key
  */
 export function getToolkitCacheKey(
-  _version: string,
-  _os: OS,
-  _arch: Arch,
-  _method: string,
-  _osInfo: LinuxDistribution | WindowsVersion
+  version: string,
+  os: OS,
+  arch: Arch,
+  method: string,
+  osInfo: LinuxDistribution | WindowsVersion
 ): string {
-  throw new Error('skeleton: not implemented');
+  if (os === OS.LINUX) {
+    // A toolkit installed with apt or dnf depends on the distribution repository.
+    const distribution = osInfo as LinuxDistribution;
+    return `setup-cuda-toolkit-linux-${arch}-${distribution.id}-${distribution.version}-${version}-${method}`;
+  }
+  return `setup-cuda-toolkit-windows-${arch}-${version}-${method}`;
 }
 
 /**
@@ -68,8 +85,88 @@ export function getToolkitCacheKey(
  * @param os - Operating system (e.g., OS.LINUX, OS.WINDOWS)
  * @returns /usr/local/cuda-<major>.<minor> on Linux, the versioned toolkit directory on Windows
  */
-export function getToolkitDir(_version: string, _os: OS): string {
-  throw new Error('skeleton: not implemented');
+export function getToolkitDir(version: string, os: OS): string {
+  const majorMinor = version.split('.').slice(0, 2).join('.');
+  if (os === OS.LINUX) {
+    return `/usr/local/cuda-${majorMinor}`;
+  }
+  return `C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v${majorMinor}`;
+}
+
+/**
+ * Restore the Linux toolkit into root-owned /usr/local and point /usr/local/cuda at it
+ * @param toolkitDir - Toolkit directory from getToolkitDir
+ * @param key - Cache key from getToolkitCacheKey
+ * @returns /usr/local/cuda if the toolkit was restored, undefined otherwise
+ */
+async function restoreToolkitLinux(toolkitDir: string, key: string): Promise<string | undefined> {
+  if ((await cache.restoreCache([toolkitDir], key, [], { lookupOnly: true })) === undefined) {
+    return undefined;
+  }
+  // The cache extracts as the runner user, who cannot create directories in /usr/local,
+  // so the directory is created and handed over only once an entry is known to exist.
+  const sudoPrefix = hasRootPrivileges() ? '' : 'sudo ';
+  await exec.exec(`${sudoPrefix}mkdir -p ${toolkitDir}`);
+  await exec.exec(`${sudoPrefix}chown ${process.getuid!()}:${process.getgid!()} ${toolkitDir}`);
+  if ((await cache.restoreCache([toolkitDir], key)) === undefined) {
+    return undefined;
+  }
+  const cudaPath = '/usr/local/cuda';
+  await exec.exec(`${sudoPrefix}ln -sfn ${toolkitDir} ${cudaPath}`);
+  return cudaPath;
+}
+
+/**
+ * Copy the CUDA MSBuild integration of a restored toolkit into every Visual Studio installation,
+ * because the restore does not run the installer step that puts it there
+ * @param toolkitDir - Toolkit directory from getToolkitDir
+ */
+async function installVisualStudioIntegration(toolkitDir: string): Promise<void> {
+  const vswhere = path.win32.join(
+    process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)',
+    'Microsoft Visual Studio',
+    'Installer',
+    'vswhere.exe'
+  );
+  if (!fs.existsSync(vswhere)) {
+    core.info(`${vswhere} not found, skipping the Visual Studio integration`);
+    return;
+  }
+  const { stdout } = await exec.getExecOutput(`"${vswhere}"`, [
+    '-products',
+    '*',
+    '-property',
+    'installationPath',
+  ]);
+  const buildCustomizationDirs = stdout
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line !== '')
+    .flatMap((installationPath) => {
+      const vcDir = path.win32.join(installationPath, 'MSBuild', 'Microsoft', 'VC');
+      if (!fs.existsSync(vcDir)) {
+        return [];
+      }
+      return fs
+        .readdirSync(vcDir)
+        .filter((name) => name.startsWith('v'))
+        .map((name) => path.win32.join(vcDir, name, 'BuildCustomizations'))
+        .filter((dir) => fs.existsSync(dir));
+    });
+
+  const extensionsDir = path.win32.join(
+    toolkitDir,
+    'extras',
+    'visual_studio_integration',
+    'MSBuildExtensions'
+  );
+  const files = fs.readdirSync(extensionsDir);
+  for (const dir of buildCustomizationDirs) {
+    core.info(`Copying the CUDA Visual Studio integration to ${dir}`);
+    for (const file of files) {
+      await io.cp(path.win32.join(extensionsDir, file), path.win32.join(dir, file));
+    }
+  }
 }
 
 /**
@@ -80,11 +177,19 @@ export function getToolkitDir(_version: string, _os: OS): string {
  * @returns The CUDA path to export if the toolkit was restored, undefined otherwise
  */
 export async function restoreToolkit(
-  _version: string,
-  _os: OS,
-  _key: string
+  version: string,
+  os: OS,
+  key: string
 ): Promise<string | undefined> {
-  throw new Error('skeleton: not implemented');
+  const toolkitDir = getToolkitDir(version, os);
+  if (os === OS.LINUX) {
+    return await restoreToolkitLinux(toolkitDir, key);
+  }
+  if ((await cache.restoreCache([toolkitDir], key)) === undefined) {
+    return undefined;
+  }
+  await installVisualStudioIntegration(toolkitDir);
+  return toolkitDir;
 }
 
 /**
@@ -93,6 +198,6 @@ export async function restoreToolkit(
  * @param os - Operating system (e.g., OS.LINUX, OS.WINDOWS)
  * @param key - Cache key from getToolkitCacheKey
  */
-export async function saveToolkit(_version: string, _os: OS, _key: string): Promise<void> {
-  throw new Error('skeleton: not implemented');
+export async function saveToolkit(version: string, os: OS, key: string): Promise<void> {
+  await save([getToolkitDir(version, os)], key);
 }
