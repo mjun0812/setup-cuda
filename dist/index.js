@@ -60219,7 +60219,7 @@ async function installCudaWindowsLocal(installerPath, version) {
 	const command = getWindowsInstallerCommand(installerPath);
 	info(`Executing: ${command} ${installArgs.join(" ")}`);
 	await exec(command, installArgs);
-	const cudaPath = `C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v${version.split(".").slice(0, 2).join(".")}`;
+	const cudaPath = getToolkitDir(version, "windows");
 	if (!fs.existsSync(cudaPath)) throw new Error(`CUDA installation failed. Path not found: ${cudaPath}`);
 }
 /**
@@ -60258,11 +60258,7 @@ async function installCudaLocal(version, os, arch, cacheInstaller) {
 	if (cacheInstaller && !restored) await saveInstaller(downloadDestination, installerCacheKey);
 	info("Cleaning up installer...");
 	await rmRF(installerPath);
-	let cudaPath;
-	if (os === "linux") cudaPath = "/usr/local/cuda";
-	else cudaPath = `C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v${version.split(".").slice(0, 2).join(".")}`;
-	await rmRF(installerPath);
-	return cudaPath;
+	return os === "linux" ? "/usr/local/cuda" : getToolkitDir(version, "windows");
 }
 async function installCudaLinuxNetwork(version, arch, osInfo) {
 	const cudaRepoAndPackage = await findCudaRepoAndPackageLinux(version, arch, osInfo);
@@ -60306,7 +60302,7 @@ async function installCudaLinuxNetwork(version, arch, osInfo) {
 * Install CUDA on Windows using network installer
 * @param version - CUDA version string (e.g., "12.3.0")
 * @param arch - Architecture (e.g., Arch.X86_64)
-* @param osInfo - Windows version information
+* @param cacheInstaller - Whether to cache the downloaded installer
 * @returns The path to the CUDA installation, or undefined if network installer is not available
 */
 async function installCudaWindowsNetwork(version, arch, cacheInstaller) {
@@ -60331,7 +60327,7 @@ async function installCudaWindowsNetwork(version, arch, cacheInstaller) {
 	} catch (error) {
 		throw new Error(`Failed to execute CUDA installer: ${getErrorMessage$1(error)}`);
 	}
-	const cudaPath = `C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v${version.split(".").slice(0, 2).join(".")}`;
+	const cudaPath = getToolkitDir(version, "windows");
 	if (!fs.existsSync(cudaPath)) throw new Error(`CUDA installation failed. Path not found: ${cudaPath}`);
 	if (cacheInstaller && !restored) await saveInstaller(downloadDestination, installerCacheKey);
 	await rmRF(installerPath);

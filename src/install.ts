@@ -20,7 +20,7 @@ import {
 } from './cuda';
 import * as tc from '@actions/tool-cache';
 import * as io from '@actions/io';
-import { getInstallerCacheKey, restoreInstaller, saveInstaller } from './cache';
+import { getInstallerCacheKey, getToolkitDir, restoreInstaller, saveInstaller } from './cache';
 
 /**
  * Get sudo prefix for command execution
@@ -106,8 +106,7 @@ async function installCudaWindowsLocal(installerPath: string, version: string): 
 
   // Get CUDA installation path
   // Windows default: C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v<version>
-  const majorMinor = version.split('.').slice(0, 2).join('.');
-  const cudaPath = `C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v${majorMinor}`;
+  const cudaPath = getToolkitDir(version, OS.WINDOWS);
 
   // Verify installation
   if (!fs.existsSync(cudaPath)) {
@@ -175,17 +174,7 @@ export async function installCudaLocal(
   await io.rmRF(installerPath);
 
   // Get CUDA installation path
-  let cudaPath: string;
-  if (os === OS.LINUX) {
-    cudaPath = '/usr/local/cuda';
-  } else {
-    // Windows
-    const majorMinor = version.split('.').slice(0, 2).join('.');
-    cudaPath = `C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v${majorMinor}`;
-  }
-  // Remove installer
-  await io.rmRF(installerPath);
-  return cudaPath;
+  return os === OS.LINUX ? '/usr/local/cuda' : getToolkitDir(version, OS.WINDOWS);
 }
 
 async function installCudaLinuxNetwork(
@@ -248,7 +237,7 @@ async function installCudaLinuxNetwork(
  * Install CUDA on Windows using network installer
  * @param version - CUDA version string (e.g., "12.3.0")
  * @param arch - Architecture (e.g., Arch.X86_64)
- * @param osInfo - Windows version information
+ * @param cacheInstaller - Whether to cache the downloaded installer
  * @returns The path to the CUDA installation, or undefined if network installer is not available
  */
 async function installCudaWindowsNetwork(
@@ -295,8 +284,7 @@ async function installCudaWindowsNetwork(
   }
 
   // Get CUDA installation path (same logic as local)
-  const majorMinor = version.split('.').slice(0, 2).join('.');
-  const cudaPath = `C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v${majorMinor}`;
+  const cudaPath = getToolkitDir(version, OS.WINDOWS);
   // Verify installation
   if (!fs.existsSync(cudaPath)) {
     throw new Error(`CUDA installation failed. Path not found: ${cudaPath}`);
