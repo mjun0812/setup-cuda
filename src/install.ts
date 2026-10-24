@@ -20,6 +20,7 @@ import {
 } from './cuda';
 import * as tc from '@actions/tool-cache';
 import * as io from '@actions/io';
+import { getInstallerCacheKey, restoreInstaller, saveInstaller } from './cache';
 
 /**
  * Get sudo prefix for command execution
@@ -119,21 +120,19 @@ async function installCudaWindowsLocal(installerPath: string, version: string): 
  * @param version - CUDA version string (e.g., "12.3.0")
  * @param os - Operating system (e.g., OS.LINUX, OS.WINDOWS)
  * @param arch - Architecture (e.g., Arch.X86_64, Arch.ARM64_SBSA)
- * @param _cacheInstaller - Whether to cache the downloaded installer
+ * @param cacheInstaller - Whether to cache the downloaded installer
  * @returns The path to the CUDA installation
  */
 export async function installCudaLocal(
   version: string,
   os: OS,
   arch: Arch,
-  _cacheInstaller: boolean
+  cacheInstaller: boolean
 ): Promise<string> {
   // Get CUDA installer URL
   const cudaInstallerUrl = await getCudaLocalInstallerUrl(version, os, arch);
   debugLog(`CUDA installer URL: ${cudaInstallerUrl}`);
 
-  // Download CUDA installer
-  core.info('Downloading CUDA installer...');
   let filename = path.basename(cudaInstallerUrl);
   if (os === OS.LINUX) {
     filename = `cuda_${version}_linux.run`;
@@ -142,9 +141,16 @@ export async function installCudaLocal(
   }
   const downloadDestination =
     os === OS.WINDOWS ? getWindowsInstallerDownloadPath(filename) : filename;
-  let installerPath = await tc.downloadTool(cudaInstallerUrl, downloadDestination);
+  const installerCacheKey = getInstallerCacheKey(os, arch, cudaInstallerUrl);
+  const restored =
+    cacheInstaller && (await restoreInstaller(downloadDestination, installerCacheKey));
+  let installerPath = downloadDestination;
+  if (!restored) {
+    core.info('Downloading CUDA installer...');
+    installerPath = await tc.downloadTool(cudaInstallerUrl, downloadDestination);
+    core.info(`CUDA installer downloaded to: ${installerPath}`);
+  }
   installerPath = normalizeInstallerPath(installerPath, os);
-  core.info(`CUDA installer downloaded to: ${installerPath}`);
 
   // Install CUDA
   if (os === OS.LINUX) {
@@ -160,6 +166,9 @@ export async function installCudaLocal(
     }
   } else if (os === OS.WINDOWS) {
     await installCudaWindowsLocal(installerPath, version);
+  }
+  if (cacheInstaller && !restored) {
+    await saveInstaller(downloadDestination, installerCacheKey);
   }
   // Remove installer
   core.info('Cleaning up installer...');
@@ -242,23 +251,31 @@ async function installCudaLinuxNetwork(
  * @param osInfo - Windows version information
  * @returns The path to the CUDA installation, or undefined if network installer is not available
  */
-async function installCudaWindowsNetwork(version: string, arch: Arch): Promise<string | undefined> {
+async function installCudaWindowsNetwork(
+  version: string,
+  arch: Arch,
+  cacheInstaller: boolean
+): Promise<string | undefined> {
   const networkInstallerUrl = await findCudaNetworkInstallerWindows(version, arch);
   if (!networkInstallerUrl) {
     throw new Error(`CUDA network installer not found for version ${version}`);
   }
 
-  const filename = `cuda_${version}_windows_network.exe`;
-  let installerPath: string;
-  try {
-    installerPath = await tc.downloadTool(
-      networkInstallerUrl,
-      getWindowsInstallerDownloadPath(filename)
-    );
-  } catch (error) {
-    throw new Error(
-      `Failed to download CUDA network installer from ${networkInstallerUrl}: ${getErrorMessage(error)} for version ${version}`
-    );
+  const downloadDestination = getWindowsInstallerDownloadPath(
+    `cuda_${version}_windows_network.exe`
+  );
+  const installerCacheKey = getInstallerCacheKey(OS.WINDOWS, arch, networkInstallerUrl);
+  const restored =
+    cacheInstaller && (await restoreInstaller(downloadDestination, installerCacheKey));
+  let installerPath = downloadDestination;
+  if (!restored) {
+    try {
+      installerPath = await tc.downloadTool(networkInstallerUrl, downloadDestination);
+    } catch (error) {
+      throw new Error(
+        `Failed to download CUDA network installer from ${networkInstallerUrl}: ${getErrorMessage(error)} for version ${version}`
+      );
+    }
   }
   installerPath = normalizeInstallerPath(installerPath, OS.WINDOWS);
 
@@ -277,9 +294,6 @@ async function installCudaWindowsNetwork(version: string, arch: Arch): Promise<s
     throw new Error(`Failed to execute CUDA installer: ${getErrorMessage(error)}`);
   }
 
-  // Clean up installer
-  await io.rmRF(installerPath);
-
   // Get CUDA installation path (same logic as local)
   const majorMinor = version.split('.').slice(0, 2).join('.');
   const cudaPath = `C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v${majorMinor}`;
@@ -287,6 +301,12 @@ async function installCudaWindowsNetwork(version: string, arch: Arch): Promise<s
   if (!fs.existsSync(cudaPath)) {
     throw new Error(`CUDA installation failed. Path not found: ${cudaPath}`);
   }
+
+  if (cacheInstaller && !restored) {
+    await saveInstaller(downloadDestination, installerCacheKey);
+  }
+  // Clean up installer
+  await io.rmRF(installerPath);
 
   return cudaPath;
 }
@@ -296,12 +316,17 @@ export async function installCudaNetwork(
   os: OS,
   arch: Arch,
   osInfo: LinuxDistribution | WindowsVersion,
-  _cacheInstaller: boolean
+  cacheInstaller: boolean
 ): Promise<string | undefined> {
   if (os === OS.LINUX) {
+    if (cacheInstaller) {
+      core.info(
+        'cache-installer has no effect for the Linux network installation, which downloads no installer file'
+      );
+    }
     return await installCudaLinuxNetwork(version, arch, osInfo as LinuxDistribution);
   } else if (os === OS.WINDOWS) {
-    return await installCudaWindowsNetwork(version, arch);
+    return await installCudaWindowsNetwork(version, arch, cacheInstaller);
   }
   return undefined;
 }

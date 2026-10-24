@@ -44,6 +44,9 @@ async function run(): Promise<void> {
     }
     core.info(`Input method: ${inputMethod}`);
 
+    const cacheInstaller = core.getBooleanInput('cache-installer');
+    core.info(`Input cache-installer: ${cacheInstaller}`);
+
     // Get OS and architecture
     const osType = getOS();
     const arch = getArch();
@@ -79,7 +82,7 @@ async function run(): Promise<void> {
     let cudaPath: string | undefined = undefined;
     if (inputMethod === 'local') {
       // Local installation
-      cudaPath = await installCudaLocal(targetCudaVersion, osType, arch, false);
+      cudaPath = await installCudaLocal(targetCudaVersion, osType, arch, cacheInstaller);
     } else if (inputMethod === 'network') {
       // Network installation
       const networkCudaPath = await installCudaNetwork(
@@ -87,7 +90,7 @@ async function run(): Promise<void> {
         osType,
         arch,
         osType === OS.LINUX ? linuxDistribution! : windowsVersion!,
-        false
+        cacheInstaller
       );
       if (!networkCudaPath) {
         throw new Error(`CUDA network installation failed for version ${targetCudaVersion}`);
@@ -101,14 +104,14 @@ async function run(): Promise<void> {
           osType,
           arch,
           osType === OS.LINUX ? linuxDistribution! : windowsVersion!,
-          false
+          cacheInstaller
         );
       } catch (error) {
         core.info(
           `CUDA network installation failed for version ${targetCudaVersion}: ${getErrorMessage(error)}`
         );
         core.info('Falling back to local installation');
-        cudaPath = await installCudaLocal(targetCudaVersion, osType, arch, false);
+        cudaPath = await installCudaLocal(targetCudaVersion, osType, arch, cacheInstaller);
       }
     }
     if (!cudaPath) {

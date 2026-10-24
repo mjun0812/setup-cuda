@@ -1,4 +1,8 @@
+import * as cache from '@actions/cache';
+import * as core from '@actions/core';
+import * as path from 'path';
 import { OS, Arch, LinuxDistribution, WindowsVersion } from './os_arch';
+import { getErrorMessage } from './utils';
 
 /**
  * Get the cache key for a downloaded installer file
@@ -7,8 +11,8 @@ import { OS, Arch, LinuxDistribution, WindowsVersion } from './os_arch';
  * @param installerUrl - URL the installer is downloaded from
  * @returns The cache key
  */
-export function getInstallerCacheKey(_os: OS, _arch: Arch, _installerUrl: string): string {
-  throw new Error('skeleton: not implemented');
+export function getInstallerCacheKey(os: OS, arch: Arch, installerUrl: string): string {
+  return `setup-cuda-installer-${os}-${arch}-${path.posix.basename(installerUrl)}`;
 }
 
 /**
@@ -17,8 +21,8 @@ export function getInstallerCacheKey(_os: OS, _arch: Arch, _installerUrl: string
  * @param key - Cache key from getInstallerCacheKey
  * @returns true if the installer was restored to installerPath
  */
-export async function restoreInstaller(_installerPath: string, _key: string): Promise<boolean> {
-  throw new Error('skeleton: not implemented');
+export async function restoreInstaller(installerPath: string, key: string): Promise<boolean> {
+  return (await cache.restoreCache([installerPath], key)) !== undefined;
 }
 
 /**
@@ -26,8 +30,17 @@ export async function restoreInstaller(_installerPath: string, _key: string): Pr
  * @param installerPath - Path the installer was downloaded to
  * @param key - Cache key from getInstallerCacheKey
  */
-export async function saveInstaller(_installerPath: string, _key: string): Promise<void> {
-  throw new Error('skeleton: not implemented');
+export async function saveInstaller(installerPath: string, key: string): Promise<void> {
+  // saveCache throws before its own error handling when the paths match nothing or its
+  // temporary directory cannot be created; a failed save must never fail the action.
+  try {
+    const cacheId = await cache.saveCache([installerPath], key);
+    if (cacheId !== -1) {
+      core.info(`Cache saved with key: ${key}`);
+    }
+  } catch (error) {
+    core.warning(`Failed to save cache with key ${key}: ${getErrorMessage(error)}`);
+  }
 }
 
 /**
