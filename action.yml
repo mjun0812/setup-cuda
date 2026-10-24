@@ -23,6 +23,22 @@ inputs:
       The local method will download the CUDA installer from the NVIDIA website and install it.
       The network method will use the CUDA network installer to install CUDA, which is faster than the local method. But the combination of CUDA and OS is limited.
     default: auto
+  cache-installer:
+    description: |
+      Whether to cache the downloaded CUDA installer file (the Linux runfile, the Windows local or network installer) in the GitHub Actions cache. (true, false)
+      When a cache entry exists, the installer is restored from the cache instead of being downloaded.
+      Otherwise, the installer is saved to the cache after a successful installation.
+      This input has no effect for the Linux network installation, which downloads no installer file.
+      The local installers are several GB and count against the default 10 GB per-repository cache limit.
+    default: 'false'
+  cache-toolkit:
+    description: |
+      Whether to cache the installed CUDA toolkit directory in the GitHub Actions cache. (true, false)
+      When a cache entry exists, the toolkit is restored from the cache and nothing is downloaded or installed.
+      Otherwise, the toolkit directory is saved to the cache after a successful installation.
+      The cache holds only the toolkit directory (/usr/local/cuda-<major>.<minor> on Linux, C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v<major>.<minor> on Windows).
+      A toolkit is several GB and counts against the default 10 GB per-repository cache limit.
+    default: 'false'
 
 outputs:
   version:

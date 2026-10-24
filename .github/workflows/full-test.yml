@@ -43,3 +43,76 @@ jobs:
       version: ${{ matrix.version }}
       method: ${{ matrix.method }}
       debug: true
+
+  # Cache keys are stable for a CUDA version, so existing entries are deleted first to make
+  # Cache-Save miss and save on every run.
+  Cache-Clear:
+    name: Cache Clear
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Delete setup-cuda Cache Entries
+        run: |
+          gh cache list --key setup-cuda- --limit 1000 --json id,key --jq '.[] | "\(.id) \(.key)"' |
+            while read -r id key; do
+              echo "Deleting cache entry: ${key}"
+              gh cache delete "${id}"
+            done
+
+  Cache-Save:
+    name: Cache Save (${{ matrix.name }})
+    needs: Cache-Clear
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ubuntu-latest, toolkit cache
+            os: ubuntu-latest
+            cache-installer: false
+            cache-toolkit: true
+          - name: windows-latest, toolkit cache
+            os: windows-latest
+            cache-installer: false
+            cache-toolkit: true
+          - name: windows-latest, installer cache
+            os: windows-latest
+            cache-installer: true
+            cache-toolkit: false
+    uses: ./.github/workflows/_test.yml
+    with:
+      os: ${{ matrix.os }}
+      version: latest
+      method: network
+      cache-installer: ${{ matrix.cache-installer }}
+      cache-toolkit: ${{ matrix.cache-toolkit }}
+
+  Cache-Restore:
+    name: Cache Restore (${{ matrix.name }})
+    needs: Cache-Save
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ubuntu-latest, toolkit cache
+            os: ubuntu-latest
+            cache-installer: false
+            cache-toolkit: true
+          - name: windows-latest, toolkit cache
+            os: windows-latest
+            cache-installer: false
+            cache-toolkit: true
+          - name: windows-latest, installer cache
+            os: windows-latest
+            cache-installer: true
+            cache-toolkit: false
+    uses: ./.github/workflows/_test.yml
+    with:
+      os: ${{ matrix.os }}
+      version: latest
+      method: network
+      cache-installer: ${{ matrix.cache-installer }}
+      cache-toolkit: ${{ matrix.cache-toolkit }}
