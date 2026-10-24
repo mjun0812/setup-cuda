@@ -70,7 +70,7 @@ describe('Windows CUDA installer execution', () => {
   it('downloads the local installer into RUNNER_TEMP and executes it with quotes', async () => {
     mocks.downloadTool.mockResolvedValue('C:\\actions-runner\\_temp\\cuda_12.8.1_windows.exe');
 
-    await installCudaLocal('12.8.1', OS.WINDOWS, Arch.X86_64);
+    await installCudaLocal('12.8.1', OS.WINDOWS, Arch.X86_64, false);
 
     expect(mocks.downloadTool).toHaveBeenCalledWith(
       'https://example.com/cuda-local.exe',
@@ -88,7 +88,13 @@ describe('Windows CUDA installer execution', () => {
       'C:\\Users\\Junya Morioka\\actions-runner\\_temp\\cuda_12.8.1_windows_network.exe'
     );
 
-    const cudaPath = await installCudaNetwork('12.8.1', OS.WINDOWS, Arch.X86_64, windowsVersion);
+    const cudaPath = await installCudaNetwork(
+      '12.8.1',
+      OS.WINDOWS,
+      Arch.X86_64,
+      windowsVersion,
+      false
+    );
 
     expect(mocks.downloadTool).toHaveBeenCalledWith(
       'https://example.com/cuda-network.exe',

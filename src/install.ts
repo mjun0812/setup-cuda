@@ -119,9 +119,15 @@ async function installCudaWindowsLocal(installerPath: string, version: string): 
  * @param version - CUDA version string (e.g., "12.3.0")
  * @param os - Operating system (e.g., OS.LINUX, OS.WINDOWS)
  * @param arch - Architecture (e.g., Arch.X86_64, Arch.ARM64_SBSA)
+ * @param _cacheInstaller - Whether to cache the downloaded installer
  * @returns The path to the CUDA installation
  */
-export async function installCudaLocal(version: string, os: OS, arch: Arch): Promise<string> {
+export async function installCudaLocal(
+  version: string,
+  os: OS,
+  arch: Arch,
+  _cacheInstaller: boolean
+): Promise<string> {
   // Get CUDA installer URL
   const cudaInstallerUrl = await getCudaLocalInstallerUrl(version, os, arch);
   debugLog(`CUDA installer URL: ${cudaInstallerUrl}`);
@@ -289,7 +295,8 @@ export async function installCudaNetwork(
   version: string,
   os: OS,
   arch: Arch,
-  osInfo: LinuxDistribution | WindowsVersion
+  osInfo: LinuxDistribution | WindowsVersion,
+  _cacheInstaller: boolean
 ): Promise<string | undefined> {
   if (os === OS.LINUX) {
     return await installCudaLinuxNetwork(version, arch, osInfo as LinuxDistribution);
