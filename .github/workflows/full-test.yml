@@ -5,6 +5,11 @@ on:
   schedule:
     - cron: '0 3 * * 0'
 
+# Two runs on the same ref would delete and restore each other's cache entries
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   Full-Test:
     name: Full Test
@@ -43,3 +48,79 @@ jobs:
       version: ${{ matrix.version }}
       method: ${{ matrix.method }}
       debug: true
+
+  # Cache keys are stable for a CUDA version, so this ref's entries are deleted first to make
+  # Cache-Save miss and save. Entries of other refs are kept. Only Cache-Save and Cache-Restore
+  # enable the caches in this repository, so any other setup-cuda- entry on the ref is left over
+  # from an earlier run for an older CUDA version that no job restores.
+  Cache-Clear:
+    name: Cache Clear
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Delete setup-cuda Cache Entries
+        run: |
+          set -o pipefail
+          gh cache list --ref "$GITHUB_REF" --key setup-cuda- --limit 1000 --json id,key --jq '.[] | "\(.id) \(.key)"' |
+            while read -r id key; do
+              echo "Deleting cache entry: ${key}"
+              gh cache delete "${id}"
+            done
+
+  Cache-Save:
+    name: Cache Save (${{ matrix.name }})
+    needs: Cache-Clear
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ubuntu-latest, toolkit cache
+            os: ubuntu-latest
+            cache-installer: false
+            cache-toolkit: true
+          - name: windows-latest, toolkit cache
+            os: windows-latest
+            cache-installer: false
+            cache-toolkit: true
+          - name: windows-latest, installer cache
+            os: windows-latest
+            cache-installer: true
+            cache-toolkit: false
+    uses: ./.github/workflows/_test.yml
+    with:
+      os: ${{ matrix.os }}
+      version: latest
+      method: network
+      cache-installer: ${{ matrix.cache-installer }}
+      cache-toolkit: ${{ matrix.cache-toolkit }}
+
+  Cache-Restore:
+    name: Cache Restore (${{ matrix.name }})
+    needs: Cache-Save
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ubuntu-latest, toolkit cache
+            os: ubuntu-latest
+            cache-installer: false
+            cache-toolkit: true
+          - name: windows-latest, toolkit cache
+            os: windows-latest
+            cache-installer: false
+            cache-toolkit: true
+          - name: windows-latest, installer cache
+            os: windows-latest
+            cache-installer: true
+            cache-toolkit: false
+    uses: ./.github/workflows/_test.yml
+    with:
+      os: ${{ matrix.os }}
+      version: latest
+      method: network
+      cache-installer: ${{ matrix.cache-installer }}
+      cache-toolkit: ${{ matrix.cache-toolkit }}

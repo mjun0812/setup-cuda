@@ -123,6 +123,14 @@ Comprehensive testing matrix:
 - CUDA versions: 10.0, 11.0, 12.0, 13.0, latest
 - Methods: local, auto
 
+Cache round trip (`latest` CUDA, `network` method):
+
+1. **Cache-Clear** deletes the cache entries of the run's own ref whose keys start with `setup-cuda-`, so that the run exercises the save. Entries of other refs are kept. On a branch, Cache-Save can still restore an entry with the same key from the default branch instead of saving
+2. **Cache-Save** runs the action with a cache enabled and saves a fresh entry: the toolkit cache on ubuntu-latest and windows-latest, and the installer cache on windows-latest
+3. **Cache-Restore** runs the same matrix again and restores from the entries Cache-Save created
+
+Full Test runs on the same ref are queued (`concurrency`), so that their round trips do not delete each other's entries. Both cache jobs run the usual verification steps. The Windows toolkit jobs also configure a CMake project with `LANGUAGES CUDA` using the default Visual Studio generator, which checks that MSBuild finds a restored toolkit. Check the logs for `Cache saved with key: setup-cuda-` in Cache-Save and `Cache hit for: setup-cuda-` in Cache-Restore.
+
 ### Container Test Workflow (`.github/workflows/container-test.yml`)
 
 Runs on:

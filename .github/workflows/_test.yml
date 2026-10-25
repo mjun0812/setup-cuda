@@ -20,6 +20,16 @@ on:
         required: false
         type: boolean
         default: false
+      cache-installer:
+        description: 'Value of the cache-installer input'
+        required: false
+        type: boolean
+        default: false
+      cache-toolkit:
+        description: 'Value of the cache-toolkit input'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   Test:
@@ -56,6 +66,8 @@ jobs:
         with:
           version: ${{ inputs.version }}
           method: ${{ inputs.method }}
+          cache-installer: ${{ inputs.cache-installer }}
+          cache-toolkit: ${{ inputs.cache-toolkit }}
 
       - name: Verify CUDA Installation (Linux)
         if: runner.os == 'Linux'
@@ -153,3 +165,17 @@ jobs:
           fi
 
           echo "CUDA installation verified successfully"
+
+      # A restored toolkit lacks the registry entries and the Visual Studio integration the
+      # installer creates; CMake's CUDA compiler check fails if MSBuild cannot find the toolkit.
+      - name: Configure a CUDA CMake Project with Visual Studio (Windows)
+        if: runner.os == 'Windows' && inputs.cache-toolkit
+        shell: pwsh
+        run: |
+          $project = Join-Path $env:RUNNER_TEMP 'cuda-cmake-check'
+          New-Item -ItemType Directory -Force -Path $project | Out-Null
+          Set-Content -Path (Join-Path $project 'CMakeLists.txt') -Value @(
+            'cmake_minimum_required(VERSION 3.18)',
+            'project(cuda_cmake_check LANGUAGES CUDA)'
+          )
+          cmake -S $project -B (Join-Path $project 'build')

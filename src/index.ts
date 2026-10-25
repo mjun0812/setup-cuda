@@ -12,9 +12,10 @@ import {
 } from './os_arch';
 import { findCudaVersion } from './cuda';
 import { installCudaLocal, installCudaNetwork } from './install';
+import { getToolkitCacheKey, restoreToolkit, saveToolkit } from './cache';
 import { getErrorMessage } from './utils';
 
-function setEnvironmentVariables(os: OS, cudaPath: string): void {
+function setEnvironmentVariables(os: OS, cudaPath: string, version: string): void {
   if (os === OS.LINUX) {
     core.addPath(path.join(cudaPath, 'bin'));
     core.exportVariable('CUDA_PATH', cudaPath);
@@ -28,7 +29,48 @@ function setEnvironmentVariables(os: OS, cudaPath: string): void {
     core.addPath(path.join(cudaPath, 'lib', 'x64'));
     core.exportVariable('CUDA_PATH', cudaPath);
     core.exportVariable('CUDA_HOME', cudaPath);
+    // NVIDIA's MSBuild integration finds the toolkit through this variable, and the
+    // machine-level value the installer sets does not reach later steps of the running job.
+    const [major, minor] = version.split('.');
+    core.exportVariable(`CUDA_PATH_V${major}_${minor}`, cudaPath);
   }
+}
+
+async function installCuda(
+  version: string,
+  osType: OS,
+  arch: Arch,
+  method: 'local' | 'network' | 'auto',
+  osInfo: LinuxDistribution | WindowsVersion,
+  cacheInstaller: boolean
+): Promise<string> {
+  let cudaPath: string | undefined = undefined;
+  if (method === 'local') {
+    // Local installation
+    cudaPath = await installCudaLocal(version, osType, arch, cacheInstaller);
+  } else if (method === 'network') {
+    // Network installation
+    const networkCudaPath = await installCudaNetwork(version, osType, arch, osInfo, cacheInstaller);
+    if (!networkCudaPath) {
+      throw new Error(`CUDA network installation failed for version ${version}`);
+    }
+    cudaPath = networkCudaPath;
+  } else if (method === 'auto') {
+    // Auto installation (try network first, then local)
+    try {
+      cudaPath = await installCudaNetwork(version, osType, arch, osInfo, cacheInstaller);
+    } catch (error) {
+      core.info(
+        `CUDA network installation failed for version ${version}: ${getErrorMessage(error)}`
+      );
+      core.info('Falling back to local installation');
+      cudaPath = await installCudaLocal(version, osType, arch, cacheInstaller);
+    }
+  }
+  if (!cudaPath) {
+    throw new Error(`CUDA installation failed for version ${version}`);
+  }
+  return cudaPath;
 }
 
 async function run(): Promise<void> {
@@ -43,6 +85,11 @@ async function run(): Promise<void> {
       throw new Error(`Invalid method: ${inputMethod}. Valid methods are: local, network, auto`);
     }
     core.info(`Input method: ${inputMethod}`);
+
+    const cacheInstaller = core.getBooleanInput('cache-installer');
+    core.info(`Input cache-installer: ${cacheInstaller}`);
+    const cacheToolkit = core.getBooleanInput('cache-toolkit');
+    core.info(`Input cache-toolkit: ${cacheToolkit}`);
 
     // Get OS and architecture
     const osType = getOS();
@@ -75,46 +122,33 @@ async function run(): Promise<void> {
     }
     core.info(`Target CUDA version: ${targetCudaVersion}`);
 
-    // Install CUDA
-    let cudaPath: string | undefined = undefined;
-    if (inputMethod === 'local') {
-      // Local installation
-      cudaPath = await installCudaLocal(targetCudaVersion, osType, arch);
-    } else if (inputMethod === 'network') {
-      // Network installation
-      const networkCudaPath = await installCudaNetwork(
+    const osInfo = osType === OS.LINUX ? linuxDistribution! : windowsVersion!;
+    const toolkitCacheKey = getToolkitCacheKey(
+      targetCudaVersion,
+      osType,
+      arch,
+      inputMethod,
+      osInfo
+    );
+    let cudaPath = cacheToolkit
+      ? await restoreToolkit(targetCudaVersion, osType, toolkitCacheKey)
+      : undefined;
+    if (!cudaPath) {
+      cudaPath = await installCuda(
         targetCudaVersion,
         osType,
         arch,
-        osType === OS.LINUX ? linuxDistribution! : windowsVersion!
+        inputMethod,
+        osInfo,
+        cacheInstaller
       );
-      if (!networkCudaPath) {
-        throw new Error(`CUDA network installation failed for version ${targetCudaVersion}`);
+      if (cacheToolkit) {
+        await saveToolkit(targetCudaVersion, osType, toolkitCacheKey);
       }
-      cudaPath = networkCudaPath;
-    } else if (inputMethod === 'auto') {
-      // Auto installation (try network first, then local)
-      try {
-        cudaPath = await installCudaNetwork(
-          targetCudaVersion,
-          osType,
-          arch,
-          osType === OS.LINUX ? linuxDistribution! : windowsVersion!
-        );
-      } catch (error) {
-        core.info(
-          `CUDA network installation failed for version ${targetCudaVersion}: ${getErrorMessage(error)}`
-        );
-        core.info('Falling back to local installation');
-        cudaPath = await installCudaLocal(targetCudaVersion, osType, arch);
-      }
-    }
-    if (!cudaPath) {
-      throw new Error(`CUDA installation failed for version ${targetCudaVersion}`);
     }
 
     // Set environment variables
-    setEnvironmentVariables(osType, cudaPath);
+    setEnvironmentVariables(osType, cudaPath, targetCudaVersion);
 
     // Set outputs
     core.setOutput('version', targetCudaVersion);
