@@ -50,7 +50,9 @@ jobs:
       debug: true
 
   # Cache keys are stable for a CUDA version, so this ref's entries are deleted first to make
-  # Cache-Save miss and save. Entries of other refs are kept.
+  # Cache-Save miss and save. Entries of other refs are kept. Only Cache-Save and Cache-Restore
+  # enable the caches in this repository, so any other setup-cuda- entry on the ref is left over
+  # from an earlier run for an older CUDA version that no job restores.
   Cache-Clear:
     name: Cache Clear
     runs-on: ubuntu-latest
