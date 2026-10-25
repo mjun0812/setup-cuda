@@ -5,6 +5,11 @@ on:
   schedule:
     - cron: '0 3 * * 0'
 
+# Two runs on the same ref would delete and restore each other's cache entries
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   Full-Test:
     name: Full Test
@@ -44,8 +49,8 @@ jobs:
       method: ${{ matrix.method }}
       debug: true
 
-  # Cache keys are stable for a CUDA version, so existing entries are deleted first to make
-  # Cache-Save miss and save on every run.
+  # Cache keys are stable for a CUDA version, so this ref's entries are deleted first to make
+  # Cache-Save miss and save. Entries of other refs are kept.
   Cache-Clear:
     name: Cache Clear
     runs-on: ubuntu-latest
@@ -57,7 +62,8 @@ jobs:
     steps:
       - name: Delete setup-cuda Cache Entries
         run: |
-          gh cache list --key setup-cuda- --limit 1000 --json id,key --jq '.[] | "\(.id) \(.key)"' |
+          set -o pipefail
+          gh cache list --ref "$GITHUB_REF" --key setup-cuda- --limit 1000 --json id,key --jq '.[] | "\(.id) \(.key)"' |
             while read -r id key; do
               echo "Deleting cache entry: ${key}"
               gh cache delete "${id}"
