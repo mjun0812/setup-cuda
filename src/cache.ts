@@ -25,12 +25,16 @@ export function getInstallerCacheKey(os: OS, arch: Arch, installerUrl: string): 
  * @returns true if the installer was restored to installerPath
  */
 export async function restoreInstaller(installerPath: string, key: string): Promise<boolean> {
+  const existedBefore = fs.existsSync(installerPath);
   if ((await cache.restoreCache([installerPath], key)) !== undefined) {
     return true;
   }
   // A failed extraction is reported as a miss but can leave a partial file behind,
-  // and downloadTool refuses to write to an existing destination.
-  await io.rmRF(installerPath);
+  // and downloadTool refuses to write to an existing destination. A file that was
+  // already there did not come from the restore, so it is left alone.
+  if (!existedBefore) {
+    await io.rmRF(installerPath);
+  }
   return false;
 }
 

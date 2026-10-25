@@ -155,6 +155,9 @@ describe('installer cache', () => {
     });
 
     it('downloads the runfile on a miss and saves it after installing and before removing it', async () => {
+      // No installer exists before the restore; the toolkit directory check still passes
+      mocks.existsSync.mockImplementation((p: string) => p !== runfile);
+
       await installCudaLocal('13.4.2', OS.LINUX, Arch.X86_64, true);
 
       expect(mocks.restoreCache).toHaveBeenCalledWith([runfile], key);

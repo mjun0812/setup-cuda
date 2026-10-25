@@ -100,11 +100,21 @@ describe('installer restore', () => {
   const installer = 'cuda_13.4.2_linux.run';
 
   it('removes what a failed restore left at the installer path on a miss', async () => {
+    mocks.existsSync.mockReturnValue(false);
     mocks.restoreCache.mockResolvedValue(undefined);
 
     await expect(restoreInstaller(installer, KEY)).resolves.toBe(false);
 
     expect(mocks.rmRF).toHaveBeenCalledWith(installer);
+  });
+
+  it('keeps a file that was already at the installer path on a miss', async () => {
+    mocks.existsSync.mockReturnValue(true);
+    mocks.restoreCache.mockResolvedValue(undefined);
+
+    await expect(restoreInstaller(installer, KEY)).resolves.toBe(false);
+
+    expect(mocks.rmRF).not.toHaveBeenCalled();
   });
 
   it('keeps the restored installer on a hit', async () => {
