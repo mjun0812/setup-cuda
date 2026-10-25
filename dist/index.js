@@ -60038,7 +60038,9 @@ function getInstallerCacheKey(os, arch, installerUrl) {
 * @returns true if the installer was restored to installerPath
 */
 async function restoreInstaller(installerPath, key) {
-	return await restoreCache([installerPath], key) !== void 0;
+	if (await restoreCache([installerPath], key) !== void 0) return true;
+	await rmRF(installerPath);
+	return false;
 }
 /**
 * Save paths to the cache without ever failing the action
@@ -60100,7 +60102,7 @@ async function restoreToolkitLinux(toolkitDir, key) {
 	await exec(`${sudoPrefix}chown ${process.getuid()}:${process.getgid()} ${toolkitDir}`);
 	if (await restoreCache([toolkitDir], key) === void 0) return;
 	const cudaPath = "/usr/local/cuda";
-	await exec(`${sudoPrefix}ln -sfn ${toolkitDir} ${cudaPath}`);
+	await exec(`${sudoPrefix}ln -sfnT ${toolkitDir} ${cudaPath}`);
 	return cudaPath;
 }
 /**

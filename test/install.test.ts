@@ -168,10 +168,16 @@ describe('installer cache', () => {
 
       const installOrder = mocks.exec.mock.invocationCallOrder[0];
       const saveOrder = mocks.saveCache.mock.invocationCallOrder[0];
-      const removeOrder = Math.min(...mocks.rmRF.mock.invocationCallOrder);
+      const removeOrder = Math.max(...mocks.rmRF.mock.invocationCallOrder);
       expect(mocks.exec.mock.calls[0][0]).toBe(`sh ${path.resolve(runfile)}`);
       expect(installOrder).toBeLessThan(saveOrder);
       expect(saveOrder).toBeLessThan(removeOrder);
+
+      // A partial file from the missed restore is cleared before the download writes there
+      expect(mocks.rmRF.mock.calls[0][0]).toBe(runfile);
+      expect(mocks.rmRF.mock.invocationCallOrder[0]).toBeLessThan(
+        mocks.downloadTool.mock.invocationCallOrder[0]
+      );
     });
 
     it('executes the restored runfile without downloading it on a hit', async () => {
@@ -229,7 +235,7 @@ describe('installer cache', () => {
       expect(mocks.downloadTool).toHaveBeenCalledTimes(1);
       expect(mocks.saveCache).toHaveBeenCalledWith([installerPath], key);
       expect(mocks.saveCache.mock.invocationCallOrder[0]).toBeLessThan(
-        mocks.rmRF.mock.invocationCallOrder[0]
+        Math.max(...mocks.rmRF.mock.invocationCallOrder)
       );
     });
 

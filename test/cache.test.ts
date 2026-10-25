@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   exec: vi.fn(),
   getExecOutput: vi.fn(),
   cp: vi.fn(),
+  rmRF: vi.fn(),
   existsSync: vi.fn(),
   readdirSync: vi.fn(),
   hasRootPrivileges: vi.fn(),
@@ -32,6 +33,7 @@ vi.mock('@actions/exec', () => ({
 
 vi.mock('@actions/io', () => ({
   cp: mocks.cp,
+  rmRF: mocks.rmRF,
 }));
 
 vi.mock('fs', () => ({
@@ -47,6 +49,7 @@ vi.mock('../src/utils', async (importOriginal) => ({
 import {
   getToolkitCacheKey,
   getToolkitDir,
+  restoreInstaller,
   restoreToolkit,
   saveInstaller,
   saveToolkit,
@@ -93,6 +96,26 @@ describe('toolkit cache keys and directories', () => {
   });
 });
 
+describe('installer restore', () => {
+  const installer = 'cuda_13.4.2_linux.run';
+
+  it('removes what a failed restore left at the installer path on a miss', async () => {
+    mocks.restoreCache.mockResolvedValue(undefined);
+
+    await expect(restoreInstaller(installer, KEY)).resolves.toBe(false);
+
+    expect(mocks.rmRF).toHaveBeenCalledWith(installer);
+  });
+
+  it('keeps the restored installer on a hit', async () => {
+    mocks.restoreCache.mockResolvedValue(KEY);
+
+    await expect(restoreInstaller(installer, KEY)).resolves.toBe(true);
+
+    expect(mocks.rmRF).not.toHaveBeenCalled();
+  });
+});
+
 describe('Linux toolkit restore', () => {
   beforeEach(() => {
     vi.spyOn(process, 'getuid').mockReturnValue(1001);
@@ -133,7 +156,7 @@ describe('Linux toolkit restore', () => {
       `sudo mkdir -p ${LINUX_TOOLKIT_DIR}`,
       `sudo chown 1001:118 ${LINUX_TOOLKIT_DIR}`,
       'restore',
-      `sudo ln -sfn ${LINUX_TOOLKIT_DIR} /usr/local/cuda`,
+      `sudo ln -sfnT ${LINUX_TOOLKIT_DIR} /usr/local/cuda`,
     ]);
     expect(mocks.restoreCache).toHaveBeenLastCalledWith([LINUX_TOOLKIT_DIR], KEY);
   });
@@ -147,7 +170,7 @@ describe('Linux toolkit restore', () => {
     expect(mocks.exec.mock.calls.map(([command]) => command)).toEqual([
       `mkdir -p ${LINUX_TOOLKIT_DIR}`,
       `chown 1001:118 ${LINUX_TOOLKIT_DIR}`,
-      `ln -sfn ${LINUX_TOOLKIT_DIR} /usr/local/cuda`,
+      `ln -sfnT ${LINUX_TOOLKIT_DIR} /usr/local/cuda`,
     ]);
   });
 

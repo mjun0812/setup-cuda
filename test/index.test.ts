@@ -300,7 +300,7 @@ describe('CUDA 13.4.2 setup on Linux', () => {
     expect(execCommands()).toEqual([
       expect.stringMatching(new RegExp(`mkdir -p ${LINUX_TOOLKIT_DIR}$`)),
       expect.stringMatching(new RegExp(`chown \\d+:\\d+ ${LINUX_TOOLKIT_DIR}$`)),
-      expect.stringMatching(new RegExp(`ln -sfn ${LINUX_TOOLKIT_DIR} /usr/local/cuda$`)),
+      expect.stringMatching(new RegExp(`ln -sfnT ${LINUX_TOOLKIT_DIR} /usr/local/cuda$`)),
     ]);
     expect(mocks.setOutput).toHaveBeenCalledWith('cuda-path', '/usr/local/cuda');
     expect(mocks.exportVariable).toHaveBeenCalledWith('CUDA_PATH', '/usr/local/cuda');

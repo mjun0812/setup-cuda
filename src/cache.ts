@@ -25,7 +25,13 @@ export function getInstallerCacheKey(os: OS, arch: Arch, installerUrl: string): 
  * @returns true if the installer was restored to installerPath
  */
 export async function restoreInstaller(installerPath: string, key: string): Promise<boolean> {
-  return (await cache.restoreCache([installerPath], key)) !== undefined;
+  if ((await cache.restoreCache([installerPath], key)) !== undefined) {
+    return true;
+  }
+  // A failed extraction is reported as a miss but can leave a partial file behind,
+  // and downloadTool refuses to write to an existing destination.
+  await io.rmRF(installerPath);
+  return false;
 }
 
 /**
@@ -112,7 +118,9 @@ async function restoreToolkitLinux(toolkitDir: string, key: string): Promise<str
     return undefined;
   }
   const cudaPath = '/usr/local/cuda';
-  await exec.exec(`${sudoPrefix}ln -sfn ${toolkitDir} ${cudaPath}`);
+  // -T fails instead of linking inside /usr/local/cuda when that is a real directory,
+  // which would otherwise publish whatever CUDA it already holds.
+  await exec.exec(`${sudoPrefix}ln -sfnT ${toolkitDir} ${cudaPath}`);
   return cudaPath;
 }
 
