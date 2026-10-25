@@ -143,7 +143,8 @@ beforeEach(() => {
   mocks.exec.mockResolvedValue(0);
   mocks.getExecOutput.mockResolvedValue({ exitCode: 0, stdout: '', stderr: '' });
   mocks.cp.mockResolvedValue(undefined);
-  mocks.existsSync.mockReturnValue(true);
+  // No installer exists before the restore; every other path exists
+  mocks.existsSync.mockImplementation((p: string) => !/cuda_[\w.-]*\.(run|exe)$/.test(p));
   mocks.readdirSync.mockReturnValue([]);
 });
 

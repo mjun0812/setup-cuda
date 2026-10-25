@@ -137,7 +137,8 @@ describe('installer cache', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env['RUNNER_TEMP'] = RUNNER_TEMP;
-    mocks.existsSync.mockReturnValue(true);
+    // No installer exists before the restore; the toolkit directory check passes
+    mocks.existsSync.mockImplementation((p: string) => !/cuda_[\w.-]*\.(run|exe)$/.test(p));
     mocks.exec.mockResolvedValue(0);
     mocks.rmRF.mockResolvedValue(undefined);
     mocks.hasRootPrivileges.mockReturnValue(true);
@@ -155,9 +156,6 @@ describe('installer cache', () => {
     });
 
     it('downloads the runfile on a miss and saves it after installing and before removing it', async () => {
-      // No installer exists before the restore; the toolkit directory check still passes
-      mocks.existsSync.mockImplementation((p: string) => p !== runfile);
-
       await installCudaLocal('13.4.2', OS.LINUX, Arch.X86_64, true);
 
       expect(mocks.restoreCache).toHaveBeenCalledWith([runfile], key);

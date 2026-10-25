@@ -108,16 +108,24 @@ describe('installer restore', () => {
     expect(mocks.rmRF).toHaveBeenCalledWith(installer);
   });
 
-  it('keeps a file that was already at the installer path on a miss', async () => {
-    mocks.existsSync.mockReturnValue(true);
-    mocks.restoreCache.mockResolvedValue(undefined);
+  it.each([
+    ['a hit', KEY],
+    ['a miss', undefined],
+  ])(
+    'leaves a file already at the installer path untouched and skips the restore on %s',
+    async (_, hit) => {
+      mocks.existsSync.mockReturnValue(true);
+      mocks.restoreCache.mockResolvedValue(hit);
 
-    await expect(restoreInstaller(installer, KEY)).resolves.toBe(false);
+      await expect(restoreInstaller(installer, KEY)).resolves.toBe(false);
 
-    expect(mocks.rmRF).not.toHaveBeenCalled();
-  });
+      expect(mocks.restoreCache).not.toHaveBeenCalled();
+      expect(mocks.rmRF).not.toHaveBeenCalled();
+    }
+  );
 
   it('keeps the restored installer on a hit', async () => {
+    mocks.existsSync.mockReturnValue(false);
     mocks.restoreCache.mockResolvedValue(KEY);
 
     await expect(restoreInstaller(installer, KEY)).resolves.toBe(true);

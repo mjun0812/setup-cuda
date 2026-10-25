@@ -60038,9 +60038,9 @@ function getInstallerCacheKey(os, arch, installerUrl) {
 * @returns true if the installer was restored to installerPath
 */
 async function restoreInstaller(installerPath, key) {
-	const existedBefore = fs.existsSync(installerPath);
+	if (fs.existsSync(installerPath)) return false;
 	if (await restoreCache([installerPath], key) !== void 0) return true;
-	if (!existedBefore) await rmRF(installerPath);
+	await rmRF(installerPath);
 	return false;
 }
 /**
