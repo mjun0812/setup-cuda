@@ -1,3 +1,5 @@
+// tsconfig.json covers only src/, so this file loads Node's types itself when checked alone
+/// <reference types="node" />
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { Arch, OS } from '../src/os_arch';
 
@@ -258,6 +260,21 @@ describe('Windows toolkit restore', () => {
     );
     expect(mocks.cp.mock.calls).toHaveLength(expectedCopies.length);
     expect(mocks.cp.mock.calls).toEqual(expect.arrayContaining(expectedCopies));
+  });
+
+  it('copies into the BuildCustomizations directory of Visual Studio 2017', async () => {
+    // Visual Studio 2017 keeps its VC targets under Common7 instead of MSBuild\Microsoft\VC
+    const vs2017 = 'C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Enterprise';
+    const vs2017Dir = `${vs2017}\\Common7\\IDE\\VC\\VCTargets\\BuildCustomizations`;
+    existing.add(vs2017Dir);
+    mocks.getExecOutput.mockResolvedValue({ exitCode: 0, stdout: `${vs2017}\r\n`, stderr: '' });
+
+    await restoreToolkit('13.4.2', OS.WINDOWS, KEY);
+
+    expect(mocks.cp.mock.calls).toEqual([
+      [`${extensionsDir}\\CUDA 13.4.props`, `${vs2017Dir}\\CUDA 13.4.props`],
+      [`${extensionsDir}\\CUDA 13.4.targets`, `${vs2017Dir}\\CUDA 13.4.targets`],
+    ]);
   });
 
   it('skips installations without the C++ build tools', async () => {

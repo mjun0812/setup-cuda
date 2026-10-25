@@ -60124,9 +60124,10 @@ async function installVisualStudioIntegration(toolkitDir) {
 		"installationPath"
 	]);
 	const buildCustomizationDirs = stdout.split(/\r?\n/).map((line) => line.trim()).filter((line) => line !== "").flatMap((installationPath) => {
+		const dirs = [path.win32.join(installationPath, "Common7", "IDE", "VC", "VCTargets", "BuildCustomizations")];
 		const vcDir = path.win32.join(installationPath, "MSBuild", "Microsoft", "VC");
-		if (!fs.existsSync(vcDir)) return [];
-		return fs.readdirSync(vcDir).filter((name) => name.startsWith("v")).map((name) => path.win32.join(vcDir, name, "BuildCustomizations")).filter((dir) => fs.existsSync(dir));
+		if (fs.existsSync(vcDir)) dirs.push(...fs.readdirSync(vcDir).filter((name) => name.startsWith("v")).map((name) => path.win32.join(vcDir, name, "BuildCustomizations")));
+		return dirs.filter((dir) => fs.existsSync(dir));
 	});
 	const extensionsDir = path.win32.join(toolkitDir, "extras", "visual_studio_integration", "MSBuildExtensions");
 	const files = fs.readdirSync(extensionsDir);

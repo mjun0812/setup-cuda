@@ -157,15 +157,27 @@ async function installVisualStudioIntegration(toolkitDir: string): Promise<void>
     .map((line) => line.trim())
     .filter((line) => line !== '')
     .flatMap((installationPath) => {
+      // Visual Studio 2017 keeps its VC targets under Common7; later versions under MSBuild\Microsoft\VC\v*
+      const dirs = [
+        path.win32.join(
+          installationPath,
+          'Common7',
+          'IDE',
+          'VC',
+          'VCTargets',
+          'BuildCustomizations'
+        ),
+      ];
       const vcDir = path.win32.join(installationPath, 'MSBuild', 'Microsoft', 'VC');
-      if (!fs.existsSync(vcDir)) {
-        return [];
+      if (fs.existsSync(vcDir)) {
+        dirs.push(
+          ...fs
+            .readdirSync(vcDir)
+            .filter((name) => name.startsWith('v'))
+            .map((name) => path.win32.join(vcDir, name, 'BuildCustomizations'))
+        );
       }
-      return fs
-        .readdirSync(vcDir)
-        .filter((name) => name.startsWith('v'))
-        .map((name) => path.win32.join(vcDir, name, 'BuildCustomizations'))
-        .filter((dir) => fs.existsSync(dir));
+      return dirs.filter((dir) => fs.existsSync(dir));
     });
 
   const extensionsDir = path.win32.join(
