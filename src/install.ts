@@ -157,7 +157,8 @@ export async function installCudaLocal(
       await installCudaLinuxLocal(installerPath);
     } catch (error) {
       try {
-        await exec.exec('cat /var/log/cuda-installer.log');
+        // The installer runs as root and writes a log only root can read
+        await exec.exec(`${getSudoPrefix()} cat /var/log/cuda-installer.log`.trim());
       } catch {
         // Ignore errors from log output
       }

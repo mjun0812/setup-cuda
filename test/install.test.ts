@@ -204,6 +204,17 @@ describe('installer cache', () => {
 
       expect(mocks.saveCache).not.toHaveBeenCalled();
     });
+
+    it('reads the root-owned installer log with sudo when the installer command rejects', async () => {
+      mocks.hasRootPrivileges.mockReturnValue(false);
+      mocks.exec.mockRejectedValueOnce(new Error('installer failed'));
+
+      await expect(installCudaLocal('13.4.2', OS.LINUX, Arch.X86_64, false)).rejects.toThrow(
+        'installer failed'
+      );
+
+      expect(mocks.exec).toHaveBeenLastCalledWith('sudo cat /var/log/cuda-installer.log');
+    });
   });
 
   it('saves the Windows local installer from RUNNER_TEMP on a miss', async () => {

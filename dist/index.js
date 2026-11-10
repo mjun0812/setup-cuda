@@ -60254,7 +60254,7 @@ async function installCudaLocal(version, os, arch, cacheInstaller) {
 		await installCudaLinuxLocal(installerPath);
 	} catch (error) {
 		try {
-			await exec("cat /var/log/cuda-installer.log");
+			await exec(`${getSudoPrefix()} cat /var/log/cuda-installer.log`.trim());
 		} catch {}
 		throw error;
 	}
