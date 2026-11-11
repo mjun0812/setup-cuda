@@ -60201,14 +60201,28 @@ function getWindowsInstallerCommand(installerPath) {
 */
 async function installCudaLinuxLocal(installerPath) {
 	info("Installing CUDA on Linux...");
-	const command = `${getSudoPrefix()} sh ${installerPath}`.trim();
+	const sudoPrefix = getSudoPrefix();
+	const command = `${sudoPrefix} sh ${installerPath}`.trim();
 	const installArgs = [
 		"--silent",
 		"--override",
 		"--toolkit"
 	];
-	debugLog(`Executing: ${command} ${installArgs.join(" ")}`);
-	await exec(command, installArgs);
+	const openMenuDirs = ["/usr/share", "/usr/share/applications"].flatMap((dir) => {
+		const stats = fs.statSync(dir, { throwIfNoEntry: false });
+		if (!stats || (stats.mode & 18) === 0) return [];
+		return [{
+			dir,
+			mode: (stats.mode & 4095).toString(8)
+		}];
+	});
+	for (const { dir } of openMenuDirs) await exec(`${sudoPrefix} chmod go-w ${dir}`.trim());
+	try {
+		debugLog(`Executing: ${command} ${installArgs.join(" ")}`);
+		await exec(command, installArgs);
+	} finally {
+		for (const { dir, mode } of openMenuDirs) await exec(`${sudoPrefix} chmod ${mode} ${dir}`.trim());
+	}
 	const cudaPath = "/usr/local/cuda";
 	if (!fs.existsSync(cudaPath)) throw new Error(`CUDA installation failed. CUDA path not found: ${cudaPath}`);
 }
@@ -60254,7 +60268,7 @@ async function installCudaLocal(version, os, arch, cacheInstaller) {
 		await installCudaLinuxLocal(installerPath);
 	} catch (error) {
 		try {
-			await exec("cat /var/log/cuda-installer.log");
+			await exec(`${getSudoPrefix()} cat /var/log/cuda-installer.log`.trim());
 		} catch {}
 		throw error;
 	}

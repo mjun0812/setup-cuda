@@ -77,8 +77,27 @@ async function installCudaLinuxLocal(installerPath: string): Promise<void> {
   // --toolkit: Install CUDA Toolkit only
   const installArgs = ['--silent', '--override', '--toolkit'];
 
-  debugLog(`Executing: ${command} ${installArgs.join(' ')}`);
-  await exec.exec(command, installArgs);
+  // The CUDA 13.5 x86_64 runfile aborts when a non-root user can write to a component of the
+  // desktop menu directory. GitHub-hosted Ubuntu images make /usr/share world-writable, so
+  // these directories are closed for the install and reopened for the steps that follow.
+  const openMenuDirs = ['/usr/share', '/usr/share/applications'].flatMap((dir) => {
+    const stats = fs.statSync(dir, { throwIfNoEntry: false });
+    if (!stats || (stats.mode & 0o022) === 0) {
+      return [];
+    }
+    return [{ dir, mode: (stats.mode & 0o7777).toString(8) }];
+  });
+  for (const { dir } of openMenuDirs) {
+    await exec.exec(`${sudoPrefix} chmod go-w ${dir}`.trim());
+  }
+  try {
+    debugLog(`Executing: ${command} ${installArgs.join(' ')}`);
+    await exec.exec(command, installArgs);
+  } finally {
+    for (const { dir, mode } of openMenuDirs) {
+      await exec.exec(`${sudoPrefix} chmod ${mode} ${dir}`.trim());
+    }
+  }
 
   // Verify installation
   const cudaPath = '/usr/local/cuda';
@@ -157,7 +176,8 @@ export async function installCudaLocal(
       await installCudaLinuxLocal(installerPath);
     } catch (error) {
       try {
-        await exec.exec('cat /var/log/cuda-installer.log');
+        // The installer runs as root and writes a log only root can read
+        await exec.exec(`${getSudoPrefix()} cat /var/log/cuda-installer.log`.trim());
       } catch {
         // Ignore errors from log output
       }

@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   downloadTool: vi.fn(),
   exec: vi.fn(),
   existsSync: vi.fn(),
+  statSync: vi.fn(),
   rmRF: vi.fn(),
   debugLog: vi.fn(),
   hasRootPrivileges: vi.fn(),
@@ -56,6 +57,7 @@ vi.mock('../src/cuda', () => ({
 
 vi.mock('fs', () => ({
   existsSync: mocks.existsSync,
+  statSync: mocks.statSync,
 }));
 
 import { installCudaLocal, installCudaNetwork } from '../src/install';
@@ -139,6 +141,7 @@ describe('installer cache', () => {
     process.env['RUNNER_TEMP'] = RUNNER_TEMP;
     // No installer exists before the restore; the toolkit directory check passes
     mocks.existsSync.mockImplementation((p: string) => !/cuda_[\w.-]*\.(run|exe)$/.test(p));
+    mocks.statSync.mockReturnValue({ mode: 0o40755 });
     mocks.exec.mockResolvedValue(0);
     mocks.rmRF.mockResolvedValue(undefined);
     mocks.hasRootPrivileges.mockReturnValue(true);
@@ -203,6 +206,17 @@ describe('installer cache', () => {
       );
 
       expect(mocks.saveCache).not.toHaveBeenCalled();
+    });
+
+    it('reads the root-owned installer log with sudo when the installer command rejects', async () => {
+      mocks.hasRootPrivileges.mockReturnValue(false);
+      mocks.exec.mockRejectedValueOnce(new Error('installer failed'));
+
+      await expect(installCudaLocal('13.4.2', OS.LINUX, Arch.X86_64, false)).rejects.toThrow(
+        'installer failed'
+      );
+
+      expect(mocks.exec).toHaveBeenLastCalledWith('sudo cat /var/log/cuda-installer.log');
     });
   });
 
@@ -278,5 +292,68 @@ describe('installer cache', () => {
     ].filter((key) => key.startsWith('setup-cuda-installer-'));
     expect(installerCacheKeys).toEqual([]);
     expect(mocks.coreInfo).toHaveBeenCalledWith(expect.stringContaining('cache-installer'));
+  });
+});
+
+describe('Linux runfile desktop menu directories', () => {
+  const runfile = path.resolve('cuda_13.5.0_linux.run');
+  const installArgs = ['--silent', '--override', '--toolkit'];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.existsSync.mockReturnValue(true);
+    mocks.exec.mockResolvedValue(0);
+    mocks.rmRF.mockResolvedValue(undefined);
+    mocks.hasRootPrivileges.mockReturnValue(false);
+    mocks.downloadTool.mockImplementation(async (_url: string, dest?: string) => dest);
+    mocks.getCudaLocalInstallerUrl.mockResolvedValue(
+      'https://developer.download.nvidia.com/compute/cuda/13.5.0/local_installers/cuda_13.5.0_linux.run'
+    );
+  });
+
+  it('closes the directories a non-root user can write to for the install and reopens them', async () => {
+    mocks.statSync.mockImplementation((p: string) => ({
+      mode: p === '/usr/share' ? 0o40777 : 0o41777,
+    }));
+
+    await installCudaLocal('13.5.0', OS.LINUX, Arch.X86_64, false);
+
+    expect(mocks.exec.mock.calls).toEqual([
+      ['sudo chmod go-w /usr/share'],
+      ['sudo chmod go-w /usr/share/applications'],
+      [`sudo sh ${runfile}`, installArgs],
+      ['sudo chmod 777 /usr/share'],
+      ['sudo chmod 1777 /usr/share/applications'],
+    ]);
+  });
+
+  it('reopens the directories when the installer command rejects', async () => {
+    mocks.statSync.mockReturnValue({ mode: 0o40777 });
+    mocks.exec.mockImplementation(async (command: string) => {
+      if (command.startsWith('sudo sh ')) {
+        throw new Error('installer failed');
+      }
+      return 0;
+    });
+
+    await expect(installCudaLocal('13.5.0', OS.LINUX, Arch.X86_64, false)).rejects.toThrow(
+      'installer failed'
+    );
+
+    expect(mocks.exec.mock.calls.slice(3)).toEqual([
+      ['sudo chmod 777 /usr/share'],
+      ['sudo chmod 777 /usr/share/applications'],
+      ['sudo cat /var/log/cuda-installer.log'],
+    ]);
+  });
+
+  it('leaves alone a directory that is missing or already closed to non-root users', async () => {
+    mocks.statSync.mockImplementation((p: string) =>
+      p === '/usr/share' ? { mode: 0o40755 } : undefined
+    );
+
+    await installCudaLocal('13.5.0', OS.LINUX, Arch.X86_64, false);
+
+    expect(mocks.exec.mock.calls).toEqual([[`sudo sh ${runfile}`, installArgs]]);
   });
 });
